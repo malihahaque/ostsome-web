@@ -1,24 +1,7 @@
 // ─── SHOPIFY ADMIN API ────────────────────────────────────────────────────────
 // Used only for the admin orders dashboard
-// NOTE: Shopify Admin API blocks direct browser requests (CORS)
-// This works via a proxy — for now it uses a CORS proxy for dev
-
-const SHOPIFY_STORE_DOMAIN = 'outdoor-sports-travel.myshopify.com';
-const SHOPIFY_ADMIN_TOKEN = import.meta.env.VITE_SHOPIFY_ADMIN_TOKEN;
-const ADMIN_API_URL = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-04`;
-
-async function adminFetch<T>(endpoint: string): Promise<T> {
-  // Use a CORS proxy for browser-based Admin API calls
-  const url = `${ADMIN_API_URL}${endpoint}`;
-  const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
-    headers: {
-      'X-Shopify-Access-Token': SHOPIFY_ADMIN_TOKEN,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!response.ok) throw new Error(`Admin API error: ${response.status}`);
-  return response.json();
-}
+// Requests go through a Netlify Function proxy (netlify/functions/admin-orders.js)
+// so the Admin API token never reaches the browser.
 
 export type AdminOrder = {
   id: number;
@@ -59,6 +42,9 @@ export async function fetchAdminOrders(params?: {
   if (params?.created_at_min) query.set('created_at_min', params.created_at_min);
   if (params?.created_at_max) query.set('created_at_max', params.created_at_max);
 
-  const data = await adminFetch<{ orders: AdminOrder[] }>(`/orders.json?${query}`);
+  const response = await fetch(`/.netlify/functions/admin-orders?${query.toString()}`);
+  if (!response.ok) throw new Error(`Admin API error: ${response.status}`);
+
+  const data = await response.json();
   return data.orders;
 }
