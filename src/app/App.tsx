@@ -49,14 +49,28 @@ function AppInner() {
   const lookiProduct = liveProducts.find(p => p.handle === 'looki-l1');
 
   // Secret admin access: navigate to /#admin or press Ctrl+Shift+A
+  // Also handles /products/[handle] URL routing for QR codes and direct links
   useEffect(() => {
     if (window.location.hash === '#admin') setPage('admin');
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'A') setPage('admin');
     };
     window.addEventListener('keydown', handler);
+
+    // Handle /products/[handle] URL routing
+    const path = window.location.pathname;
+    const productMatch = path.match(/^\/products\/([^?]+)/);
+    if (productMatch && liveProducts.length > 0) {
+      const handle = productMatch[1];
+      const found = liveProducts.find(p => p.handle === handle);
+      if (found) {
+        setSelectedProduct(found);
+        setPage('product-detail');
+      }
+    }
+
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [liveProducts]);
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
