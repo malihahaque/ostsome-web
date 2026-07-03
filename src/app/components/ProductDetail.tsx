@@ -227,7 +227,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
               <p className="text-sm text-neutral-600 mb-3">We have 4 exciting prizes waiting for you:</p>
               <ul className="text-sm text-neutral-700 space-y-1 mb-4">
                 <li>🎁 Free Gift</li>
-                <li>🛍️ 1-for-1 Deal</li>
+                <li>🛍️ 1-for-1 Deal (Please select two items, then enter the code to redeem the offer)</li>
                 <li>💵 $100 Voucher</li>
                 <li>💳 $60 Voucher</li>
               </ul>
