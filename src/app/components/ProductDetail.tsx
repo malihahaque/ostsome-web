@@ -6,7 +6,7 @@ import { useCart } from './CartContext';
 import { useAuth } from './AuthContext';
 import { fetchProductByHandle } from '../data/shopify';
 import { getFostPrice } from '../data/pricing';
-import luckyDrawImg from '../imports/rubyoung-lucky-draw.jpg';
+import luckyDrawImg from '../../imports/rubyoung-lucky-draw.jpg';
 
 type ProductDetailProps = {
   product: Product;
