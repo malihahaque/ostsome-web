@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ShoppingCart, Star, Shield, Truck, RefreshCw, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, Star, Shield, Truck, RefreshCw, Check, X } from 'lucide-react';
 import type { Product } from '../data/products';
 import { getVariants } from '../data/productVariants';
 import { useCart } from './CartContext';
@@ -13,6 +13,8 @@ type ProductDetailProps = {
   onCheckout?: () => void;
 };
 
+const RUBYOUNG_SPIN_HANDLES = ['rubyoung-spin'];
+
 export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProps) {
   const { user } = useAuth();
   const isFostMember = Boolean(user);
@@ -22,9 +24,20 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const [selectedOption2, setSelectedOption2] = useState<string | null>(null);
   const [addedToCart, setAddedToCart] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showLuckyDraw, setShowLuckyDraw] = useState(false);
 
   const { addItem } = useCart();
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
+
+  // Show lucky draw popup if arrived via QR (URL contains /products/)
+  useEffect(() => {
+    const isRubyoungSpin = RUBYOUNG_SPIN_HANDLES.includes(product.handle);
+    const isFromQR = window.location.pathname.includes('/products/');
+    if (isRubyoungSpin && isFromQR) {
+      const timer = setTimeout(() => setShowLuckyDraw(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [product.handle]);
 
   // Fetch Shopify variant GIDs for checkout
   useEffect(() => {
@@ -32,7 +45,6 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       if (!sp) return;
       const map: Record<string, string> = {};
       sp.variants.edges.forEach(({ node }) => {
-        // Key by option values joined, or 'default' for single-variant products
         const optionValues = node.selectedOptions
           .filter(o => o.name !== 'Title' && o.value !== 'Default Title')
           .map(o => o.value);
@@ -40,8 +52,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
         map[key] = node.id;
       });
       setShopifyVariants(map);
-    }).catch(() => {}); // silent fail
+    }).catch(() => {});
   }, [product.handle]);
+
   const variants = getVariants(product.handle);
 
   const hasDiscount = product.comparePrice && product.comparePrice > product.price;
@@ -175,7 +188,6 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     onCheckout?.();
   }
 
-  // Per-product video banners shown at the top of the page (YouTube video ID + autoplay)
   const PRODUCT_VIDEOS: Record<string, { videoId: string; title: string; start?: number }> = {
     'looki-l1': { videoId: 'KHjibXAMLxI', title: 'Looki L1 video', start: 1 },
     'dometic-cfx5-35-performance-compressor-cooler': { videoId: 'YV7fcGkof0I', title: 'Dometic CFX5 35 video' },
@@ -188,6 +200,63 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
   return (
     <div className="min-h-screen bg-white">
+
+      {/* Lucky Draw Popup */}
+      {showLuckyDraw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-fade-in">
+            <button
+              onClick={() => setShowLuckyDraw(false)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow transition"
+            >
+              <X size={16} className="text-neutral-600" />
+            </button>
+
+            {/* Promo image */}
+            <img
+              src="https://ostsome.com/images/rubyoung-lucky-draw.jpg"
+              alt="Exclusive Offers"
+              className="w-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+
+            <div className="p-5">
+              <h2 className="text-lg font-bold text-black mb-1">🎉 Congratulations!</h2>
+              <p className="text-sm font-semibold text-[#F16C10] mb-3">Welcome to the OSTSOME × Rubyoung Lucky Draw! 🎟️</p>
+
+              <p className="text-sm text-neutral-600 mb-3">We have 4 exciting prizes waiting for you:</p>
+              <ul className="text-sm text-neutral-700 space-y-1 mb-4">
+                <li>🎁 Free Gift</li>
+                <li>🛍️ 1-for-1 Deal</li>
+                <li>💵 $100 Voucher</li>
+                <li>💳 $60 Voucher</li>
+              </ul>
+
+              <p className="text-sm font-semibold text-neutral-700 mb-2">Simply follow these steps:</p>
+              <ol className="text-sm text-neutral-600 space-y-1 mb-5">
+                <li>1. Scan the QR code.</li>
+                <li>2. You'll be directed to the Rubyoung homepage.</li>
+                <li>3. Tap <strong>Buy Now</strong>.</li>
+                <li>4. Enter your shipping details and complete your order.</li>
+              </ol>
+
+              <button
+                onClick={() => { setShowLuckyDraw(false); handleBuyNow(); }}
+                className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-3.5 rounded-xl transition-colors text-sm uppercase tracking-wide"
+              >
+                Buy Now
+              </button>
+              <button
+                onClick={() => setShowLuckyDraw(false)}
+                className="w-full mt-2 text-xs text-neutral-400 hover:text-neutral-600 py-2 transition-colors"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 py-4">
         <button
           onClick={onBack}
@@ -453,69 +522,4 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
             <div className="flex flex-col gap-3 mb-8">
               {!product.availableForSale ? (
-                <div className="w-full bg-neutral-100 text-neutral-400 font-bold py-4 rounded-xl flex items-center justify-center text-sm uppercase tracking-wide">
-                  Sold Out
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleAddToCart}
-                    className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm uppercase tracking-wide ${
-                      addedToCart
-                        ? 'bg-green-500 text-white'
-                        : 'bg-[#F16C10] hover:bg-[#d9610e] text-white'
-                    }`}
-                  >
-                    {addedToCart ? (
-                      <><Check size={18} /> Added to Cart</>
-                    ) : (
-                      <><ShoppingCart size={18} /> Add to Cart</>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleBuyNow}
-                    className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 rounded-xl transition-colors text-sm uppercase tracking-wide"
-                  >
-                    Buy Now
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: Truck, label: 'Free shipping', sub: 'Orders over SGD 150' },
-                { icon: Shield, label: 'Warranty', sub: '1-year coverage' },
-                { icon: RefreshCw, label: 'Easy returns', sub: '30-day policy' },
-              ].map(({ icon: Icon, label, sub }) => (
-                <div key={label} className="flex flex-col items-center text-center p-3 bg-neutral-50 rounded-xl">
-                  <Icon size={18} className="text-[#F16C10] mb-1.5" />
-                  <span className="text-xs font-semibold text-black">{label}</span>
-                  <span className="text-[10px] text-neutral-400 leading-tight">{sub}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-neutral-100 mb-6" />
-
-            <div>
-              <h2 className="text-sm font-bold text-black uppercase tracking-wide mb-4">About this product</h2>
-              <div
-                className="text-sm text-neutral-600 leading-relaxed product-description"
-                dangerouslySetInnerHTML={{ __html: product.bodyHtml }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        .product-description ul { list-style: disc; padding-left: 1.25rem; margin: 0.75rem 0; }
-        .product-description li { margin-bottom: 0.25rem; }
-        .product-description p { margin-bottom: 0.75rem; }
-        .product-description h3 { font-weight: 700; margin: 1rem 0 0.5rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .product-description strong { color: #111; font-weight: 600; }
-      `}</style>
-    </div>
-  );
-}
+                <div className="w-full bg-n
