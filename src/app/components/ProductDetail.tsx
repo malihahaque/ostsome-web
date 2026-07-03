@@ -33,9 +33,8 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   // Show lucky draw popup if arrived via QR (URL contains /products/)
   useEffect(() => {
     const isRubyoungSpin = RUBYOUNG_SPIN_HANDLES.includes(product.handle);
-    const isFromQR = window.location.pathname.includes('/products/');
-    if (isRubyoungSpin && isFromQR) {
-      const timer = setTimeout(() => setShowLuckyDraw(true), 800);
+    if (isRubyoungSpin) {
+      const timer = setTimeout(() => setShowLuckyDraw(true), 500);
       return () => clearTimeout(timer);
     }
   }, [product.handle]);
