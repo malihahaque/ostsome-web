@@ -6,6 +6,7 @@ import { useCart } from './CartContext';
 import { useAuth } from './AuthContext';
 import { fetchProductByHandle } from '../data/shopify';
 import { getFostPrice } from '../data/pricing';
+import luckyDrawImg from '../imports/rubyoung-lucky-draw.jpg';
 
 type ProductDetailProps = {
   product: Product;
@@ -214,7 +215,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
             {/* Promo image */}
             <img
-              src="https://ostsome.com/images/rubyoung-lucky-draw.jpg"
+              src={luckyDrawImg}
               alt="Exclusive Offers"
               className="w-full object-cover"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -522,4 +523,4 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
             <div className="flex flex-col gap-3 mb-8">
               {!product.availableForSale ? (
-                <div className="w-full bg-n
+                <d
