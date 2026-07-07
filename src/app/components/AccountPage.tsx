@@ -615,4 +615,79 @@ function MemberPerks() {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusStyle[perk.status]}`}>
                   {perk.status}
                 </span>
-             
+              </div>
+              <p className="text-xs text-neutral-500 leading-relaxed">{perk.desc}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── MAIN ACCOUNT PAGE ────────────────────────────────────────────────────────
+export function AccountPage({ onBack, onSelectProduct, initialTab = 'orders' }: AccountPageProps) {
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const { user } = useAuth();
+
+  const tabs: { key: Tab; label: string; icon: typeof Package; count?: number }[] = [
+    { key: 'orders',  label: 'My Orders',     icon: Package },
+    { key: 'profile', label: 'My Profile',    icon: User },
+    { key: 'perks',   label: 'Member Perks',  icon: Crown },
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        {/* Back */}
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-black transition mb-6"
+        >
+          <ChevronLeft size={16} /> Back to Shop
+        </button>
+
+        {/* Page header */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 rounded-full bg-[#F16C10] text-white text-base font-bold flex items-center justify-center shrink-0">
+            {(user?.firstName ?? 'M').charAt(0).toUpperCase()}{(user?.lastName ?? '').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-black">{user?.firstName} {user?.lastName}</h1>
+            <p className="text-sm text-neutral-400">{user?.email}</p>
+          </div>
+        </div>
+
+        {/* Tab nav */}
+        <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 mb-6 overflow-x-auto">
+          {tabs.map(t => {
+            const Icon = t.icon;
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition flex-1 justify-center ${
+                  active ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-black'
+                }`}
+              >
+                <Icon size={14} />
+                {t.label}
+                {t.count !== undefined && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-[#F16C10] text-white' : 'bg-neutral-200 text-neutral-500'}`}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content */}
+        {tab === 'orders'  && <MyOrders />}
+        {tab === 'profile' && <MyProfile />}
+        {tab === 'perks'   && <MemberPerks />}
+      </div>
+    </div>
+  );
+}
