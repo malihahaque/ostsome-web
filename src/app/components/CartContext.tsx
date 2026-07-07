@@ -35,7 +35,7 @@ type CartContextType = {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, shopifyToken } = useAuth();
   const isFostMember = Boolean(user);
 
   const [items, setItems] = useState<CartItem[]>([]);
@@ -96,7 +96,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // this keeps what's shown on-site and what's actually charged in sync.
       // (Requires a "FOST5" discount code to exist and be active in Shopify
       // Admin → Discounts, set to 5% off all products.)
-      let cart = await createCart(isFostMember ? [FOST_DISCOUNT_CODE] : undefined);
+      // Passing the customer's token here links the resulting order to their
+      // Shopify account (see comment on createCart) — this is what makes
+      // "My Orders" and status tracking work for logged-in FOST members.
+      let cart = await createCart(
+        isFostMember ? [FOST_DISCOUNT_CODE] : undefined,
+        shopifyToken ?? undefined
+      );
 
       // Add all items to the cart
       for (const item of itemsWithVariants) {
@@ -117,7 +123,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       alert('Something went wrong. Please try again.');
       setCheckoutLoading(false);
     }
-  }, [items, isFostMember]);
+  }, [items, isFostMember, shopifyToken]);
 
   const totalItems = items.reduce((sum, i) => sum + i.qty, 0);
   const subtotal = items.reduce((sum, i) => sum + i.variantPrice * i.qty, 0);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useState as useStateAlt, useEffect } from 'react';
-import { getCustomer } from '../data/shopify';
+import { getCustomer, updateCustomerProfile, saveCustomerAddress } from '../data/shopify';
 import {
   ChevronLeft, Package, User, Heart, Crown, Tag, Zap, Users, Gift,
   CalendarHeart, ChevronRight, Edit2, Save, X, MapPin, Phone, Mail,
@@ -237,27 +237,96 @@ function MyOrders() {
 
 // ─── MY PROFILE ───────────────────────────────────────────────────────────────
 function MyProfile() {
-  const { user, login } = useAuth();
+  const { user, login, shopifyToken } = useAuth();
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [addressId, setAddressId] = useState<string | null>(null);
   const [form, setForm] = useState({
     firstName: user?.firstName ?? '',
     lastName: user?.lastName ?? '',
     email: user?.email ?? '',
-    phone: '+65 9123 4567',
-    dob: '1990-06-01',
-    address: 'Block 123, Tampines Street 11, #04-21',
-    postal: '520123',
+    phone: '',
+    dob: '',
+    address: '',
+    postal: '',
   });
   const [saved, setSaved] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwError, setPwError] = useState('');
 
-  function handleSave() {
-    login({ firstName: form.firstName, lastName: form.lastName, email: form.email });
-    setEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  // Load the customer's real saved data from Shopify (name, phone, address)
+  // instead of showing placeholder mock values.
+  useEffect(() => {
+    if (!shopifyToken) { setLoading(false); return; }
+    getCustomer(shopifyToken)
+      .then(customer => {
+        if (!customer) return;
+        const addr = customer.defaultAddress;
+        setAddressId(addr?.id ?? null);
+        setForm(f => ({
+          ...f,
+          firstName: customer.firstName ?? f.firstName,
+          lastName: customer.lastName ?? f.lastName,
+          email: customer.email ?? f.email,
+          phone: customer.phone ?? '',
+          address: addr ? [addr.address1, addr.address2].filter(Boolean).join(', ') : '',
+          postal: addr?.zip ?? '',
+        }));
+      })
+      .catch(() => { /* keep defaults if this fails */ })
+      .finally(() => setLoading(false));
+  }, [shopifyToken]);
+
+  async function handleSave() {
+    if (!shopifyToken) {
+      // No Shopify session — just update local display state
+      login({ firstName: form.firstName, lastName: form.lastName, email: form.email });
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      return;
+    }
+
+    setSaving(true);
+    setSaveError('');
+    try {
+      const profileResult = await updateCustomerProfile(shopifyToken, {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phone: form.phone || undefined,
+      });
+      if (!profileResult.success) {
+        setSaveError(profileResult.errors[0] ?? 'Could not save profile');
+        setSaving(false);
+        return;
+      }
+
+      // Only touch the address if there's something to save
+      if (form.address.trim() || form.postal.trim()) {
+        const addressResult = await saveCustomerAddress(shopifyToken, addressId, {
+          address1: form.address,
+          city: 'Singapore',
+          zip: form.postal,
+          country: 'Singapore',
+        });
+        if (!addressResult.success) {
+          setSaveError(addressResult.errors[0] ?? 'Could not save address');
+          setSaving(false);
+          return;
+        }
+      }
+
+      login({ firstName: form.firstName, lastName: form.lastName, email: form.email, shopifyToken });
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setSaveError('Something went wrong saving your profile. Please try again.');
+    }
+    setSaving(false);
   }
 
   function handlePwSave() {
@@ -308,6 +377,12 @@ function MyProfile() {
         </div>
       )}
 
+      {saveError && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
+          <X size={15} /> {saveError}
+        </div>
+      )}
+
       {/* Personal info */}
       <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
@@ -317,8 +392,12 @@ function MyProfile() {
               <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-black border border-neutral-200 px-3 py-1.5 rounded-lg transition">
                 <X size={12} /> Cancel
               </button>
-              <button onClick={handleSave} className="flex items-center gap-1 text-xs text-white bg-[#F16C10] hover:bg-[#d65f0e] px-3 py-1.5 rounded-lg transition">
-                <Save size={12} /> Save
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1 text-xs text-white bg-[#F16C10] hover:bg-[#d65f0e] disabled:opacity-60 px-3 py-1.5 rounded-lg transition"
+              >
+                <Save size={12} /> {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
           ) : (
@@ -332,7 +411,10 @@ function MyProfile() {
           <Field label="Last Name" value={form.lastName} editKey="lastName" />
           <Field label="Email" value={form.email} editKey="email" type="email" />
           <Field label="Phone" value={form.phone} editKey="phone" type="tel" />
-          <Field label="Date of Birth" value={form.dob} editKey="dob" type="date" />
+          <div className="flex flex-col gap-1">
+            <Field label="Date of Birth" value={form.dob} editKey="dob" type="date" />
+            {editing && <p className="text-[10px] text-neutral-400">Not saved yet — coming soon</p>}
+          </div>
         </div>
       </div>
 
