@@ -103,10 +103,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cart = await addToCart(cart.id, item.shopifyVariantId!, item.qty);
       }
 
-      // Open Shopify's hosted checkout in a new tab
-      // (works in both Figma preview and production)
-      window.open(cart.checkoutUrl, '_blank');
-      setCheckoutLoading(false);
+      // Navigate to Shopify's hosted checkout in the SAME tab.
+      // Using window.open(..., '_blank') left the original ostsome.com tab
+      // alive in the background with stale cart state — since that tab
+      // never gets any signal that checkout completed, the cart appeared
+      // to still contain the purchased item. Navigating in the same tab
+      // means the cart naturally resets on the next page load (cart state
+      // lives in memory only, not localStorage), and "continue shopping"
+      // returns the customer to a fresh ostsome.com session.
+      window.location.href = cart.checkoutUrl;
     } catch (err) {
       console.error('Checkout error:', err);
       alert('Something went wrong. Please try again.');
@@ -123,18 +128,4 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider value={{
-      items, addItem, removeItem, updateQty, clearCart,
-      totalItems, subtotal, isFostMember, fostSubtotal, fostSavings,
-      isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false),
-      goToShopifyCheckout, checkoutLoading,
-    }}>
-      {children}
-    </CartContext.Provider>
-  );
-}
-
-export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used inside CartProvider');
-  return ctx;
-}
+      items, addItem, removeItem, u
