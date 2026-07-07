@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Product } from '../data/products';
 import { createCart, addToCart, removeFromCart, updateCartLine } from '../data/shopify';
 import { useAuth } from './AuthContext';
@@ -75,6 +75,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => setItems([]), []);
+
+  // If the customer navigates to checkout, then uses the browser's own Back
+  // button (not the logo/continue-shopping links), the browser can restore
+  // this page from bfcache exactly as it was mid-navigation — including
+  // checkoutLoading stuck at `true` forever, since the code that would
+  // normally reset it never got to run (the page had already navigated
+  // away to Shopify). That left the checkout button permanently disabled
+  // on return. Resetting on `pageshow` (which fires on every bfcache
+  // restore) fixes it.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setCheckoutLoading(false);
+      }
+    }
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   // Creates a real Shopify cart and redirects to Shopify hosted checkout
   const goToShopifyCheckout = useCallback(async () => {

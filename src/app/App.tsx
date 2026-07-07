@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './components/AuthContext';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
@@ -31,6 +31,27 @@ import type { Product } from './data/products';
 
 type Page = 'home' | 'products' | 'product-detail' | 'brands' | 'brand-detail' | 'nav-category' | 'checkout' | 'account' | 'admin' | 'launch-exclusive' | 'one-season-off' | 'fost-membership';
 
+// Everything needed to fully restore a screen — this is what gets stored in
+// browser history so the back/forward buttons can actually move between
+// in-app pages instead of leaving the site entirely (the app previously
+// used plain React state with no History API integration, so there was
+// no history stack for the browser to navigate within).
+type NavState = {
+  page: Page;
+  productHandle: string | null;
+  brand: string | null;
+  navCategory: string | null;
+  search: string;
+  accountTab: AccountTab;
+};
+
+function buildUrl(state: NavState): string {
+  if (state.page === 'product-detail' && state.productHandle) {
+    return `/products/${state.productHandle}`;
+  }
+  return '/';
+}
+
 function AppInner() {
   const { user } = useAuth();
   const { openCart } = useCart();
@@ -48,12 +69,102 @@ function AppInner() {
   const heshAncProduct = liveProducts.find(p => p.handle === 'skullcandy-hesh-anc-noise-canceling-wireless-headphones');
   const lookiProduct = liveProducts.find(p => p.handle === 'looki-l1');
 
+  // Mirrors current nav-relevant state without triggering re-renders — used
+  // so goTo() always has the latest values even though React state updates
+  // are asynchronous (avoids stale-closure bugs when building history state).
+  const navRef = useRef<NavState>({
+    page: 'home', productHandle: null, brand: null, navCategory: null, search: '', accountTab: 'orders',
+  });
+
+  // Central navigation function: updates React state AND pushes a real
+  // browser history entry, so the back/forward buttons have something to
+  // actually navigate between.
+  function goTo(
+    next: {
+      page: Page;
+      product?: Product | null;
+      brand?: string | null;
+      navCategory?: string | null;
+      search?: string;
+      accountTab?: AccountTab;
+    },
+    options: { scroll?: boolean; replace?: boolean } = {}
+  ) {
+    const { scroll = true, replace = false } = options;
+
+    setPage(next.page);
+    if ('product' in next) setSelectedProduct(next.product ?? null);
+    if ('brand' in next) setSelectedBrand(next.brand ?? null);
+    if ('navCategory' in next) setSelectedNavCategory(next.navCategory ?? null);
+    if ('search' in next) setInitialSearch(next.search ?? '');
+    if ('accountTab' in next) setAccountTab(next.accountTab ?? 'orders');
+
+    const historyState: NavState = {
+      page: next.page,
+      productHandle: 'product' in next ? (next.product?.handle ?? null) : navRef.current.productHandle,
+      brand: 'brand' in next ? (next.brand ?? null) : navRef.current.brand,
+      navCategory: 'navCategory' in next ? (next.navCategory ?? null) : navRef.current.navCategory,
+      search: next.search ?? '',
+      accountTab: next.accountTab ?? navRef.current.accountTab,
+    };
+    navRef.current = historyState;
+
+    const url = buildUrl(historyState);
+    if (replace) window.history.replaceState(historyState, '', url);
+    else window.history.pushState(historyState, '', url);
+
+    if (scroll) scrollTop();
+  }
+
+  // Restores the screen from a history entry when the user presses the
+  // browser's back/forward buttons (does NOT push a new entry — just syncs
+  // React state to whatever the browser is now pointing at).
+  useEffect(() => {
+    function handlePopState(event: PopStateEvent) {
+      const state = event.state as NavState | null;
+
+      if (!state) {
+        // No state means we've gone back past our first pushed entry —
+        // treat it as home rather than leaving state stuck on the old page.
+        navRef.current = { page: 'home', productHandle: null, brand: null, navCategory: null, search: '', accountTab: 'orders' };
+        setPage('home');
+        setSelectedProduct(null);
+        setSelectedBrand(null);
+        setSelectedNavCategory(null);
+        setInitialSearch('');
+        window.scrollTo({ top: 0 });
+        return;
+      }
+
+      navRef.current = state;
+      setPage(state.page);
+      setSelectedBrand(state.brand);
+      setSelectedNavCategory(state.navCategory);
+      setInitialSearch(state.search);
+      setAccountTab(state.accountTab);
+
+      if (state.page === 'product-detail' && state.productHandle) {
+        const found = liveProducts.find(p => p.handle === state.productHandle);
+        setSelectedProduct(found ?? null);
+      } else {
+        setSelectedProduct(null);
+      }
+
+      window.scrollTo({ top: 0 });
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [liveProducts]);
+
   // Secret admin access: navigate to /#admin or press Ctrl+Shift+A
   // Also handles /products/[handle] URL routing for QR codes and direct links
   useEffect(() => {
-    if (window.location.hash === '#admin') setPage('admin');
+    if (window.location.hash === '#admin') {
+      goTo({ page: 'admin' }, { replace: true, scroll: false });
+    }
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'A') setPage('admin');
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') goTo({ page: 'admin' });
     };
     window.addEventListener('keydown', handler);
 
@@ -64,52 +175,47 @@ function AppInner() {
       const handle = productMatch[1];
       const found = liveProducts.find(p => p.handle === handle);
       if (found) {
-        setSelectedProduct(found);
-        setPage('product-detail');
+        goTo({ page: 'product-detail', product: found }, { replace: true, scroll: false });
       }
+    } else if (window.location.hash !== '#admin') {
+      // Establish an initial history entry for the home page so that
+      // pressing "back" from the very first navigation has somewhere
+      // defined to land, rather than an entry with no state at all.
+      window.history.replaceState(navRef.current, '', '/');
     }
 
     return () => window.removeEventListener('keydown', handler);
   }, [liveProducts]);
 
   const handleSelectProduct = (product: Product) => {
-    setSelectedProduct(product);
-    setPage('product-detail');
-    scrollTop();
+    goTo({ page: 'product-detail', product });
   };
 
   const handleSelectBrand = (brand: string) => {
-    setSelectedBrand(brand);
-    setPage('brand-detail');
-    scrollTop();
+    goTo({ page: 'brand-detail', brand });
   };
 
   const handleNavToNavCategory = (category: string) => {
-    setSelectedNavCategory(category);
-    setPage('nav-category');
-    scrollTop();
+    goTo({ page: 'nav-category', navCategory: category });
   };
 
-  const handleNavToProducts = () => { setInitialSearch(''); setPage('products'); scrollTop(); };
-  const handleNavToHome = () => { setPage('home'); scrollTop(); };
-  const handleNavToBrands = () => { setPage('brands'); scrollTop(); };
+  const handleNavToProducts = () => goTo({ page: 'products', search: '' });
+  const handleNavToHome = () => goTo({ page: 'home' });
+  const handleNavToBrands = () => goTo({ page: 'brands' });
 
   const handleSearchNavigate = (query: string) => {
-    setInitialSearch(query);
-    setPage('products');
-    scrollTop();
+    goTo({ page: 'products', search: query });
   };
 
   const handleBackFromProduct = () => {
-    if (selectedBrand) setPage('brand-detail');
-    else if (selectedNavCategory) setPage('nav-category');
-    else setPage('products');
-    scrollTop();
+    if (selectedBrand) goTo({ page: 'brand-detail', brand: selectedBrand });
+    else if (selectedNavCategory) goTo({ page: 'nav-category', navCategory: selectedNavCategory });
+    else goTo({ page: 'products' });
   };
 
   const handleGoToCheckout = () => { openCart(); };
   const handleOrderComplete = (_orderNum: string) => {};
-  const handleBackFromCheckout = () => { setPage('home'); scrollTop(); };
+  const handleBackFromCheckout = () => goTo({ page: 'home' });
 
   const showHeader = page !== 'checkout';
 
@@ -133,15 +239,13 @@ function AppInner() {
           onSelectProduct={handleSelectProduct}
           onSearchNavigate={handleSearchNavigate}
           onNavToLogin={() => {
-            if (user) { setAccountTab('orders'); setPage('account'); scrollTop(); }
+            if (user) goTo({ page: 'account', accountTab: 'orders' });
             else setAuthModal({ open: true, view: 'login' });
           }}
           onNavToAccount={(tab) => {
-            setAccountTab((tab as AccountTab) ?? 'orders');
-            setPage('account');
-            scrollTop();
+            goTo({ page: 'account', accountTab: (tab as AccountTab) ?? 'orders' });
           }}
-          onLogout={() => { setPage('home'); scrollTop(); }}
+          onLogout={() => goTo({ page: 'home' })}
           currentPage={page}
           currentNavCategory={selectedNavCategory}
         />
@@ -153,7 +257,7 @@ function AppInner() {
             onNavToAllProducts={handleNavToProducts}
             onNavToHeshAnc={() => { if (heshAncProduct) handleSelectProduct(heshAncProduct); }}
             onNavToFostSignup={() => setAuthModal({ open: true, view: 'signup' })}
-            onNavToClearance={() => { setPage('one-season-off'); scrollTop(); }}
+            onNavToClearance={() => goTo({ page: 'one-season-off' })}
             onNavToLooki={() => { if (lookiProduct) handleSelectProduct(lookiProduct); }}
           />
           <WhatsNewThisWeek onShopAll={handleNavToProducts} onSelectProduct={handleSelectProduct} />
@@ -161,16 +265,16 @@ function AppInner() {
           <FostMembership
             onJoin={() => setAuthModal({ open: true, view: 'signup' })}
             onLogin={() => setAuthModal({ open: true, view: 'login' })}
-            onLearnMore={() => { setPage('fost-membership'); scrollTop(); }}
+            onLearnMore={() => goTo({ page: 'fost-membership' })}
           />
           <LaunchExclusive
             onSelectProduct={handleSelectProduct}
-            onViewAll={() => { setPage('launch-exclusive'); scrollTop(); }}
+            onViewAll={() => goTo({ page: 'launch-exclusive' })}
           />
           <WhyEnthusiasts />
           <OneSeasonOff
             onSelectProduct={handleSelectProduct}
-            onViewAll={() => { setPage('one-season-off'); scrollTop(); }}
+            onViewAll={() => goTo({ page: 'one-season-off' })}
           />
           <ShoppableSetup onSelectProduct={handleSelectProduct} />
           <OurStory />
@@ -200,7 +304,7 @@ function AppInner() {
       {page === 'brand-detail' && selectedBrand && (
         <BrandDetail
           brand={selectedBrand}
-          onBack={() => { setPage('brands'); scrollTop(); }}
+          onBack={() => goTo({ page: 'brands' })}
           onSelectProduct={handleSelectProduct}
         />
       )}
@@ -208,7 +312,7 @@ function AppInner() {
       {page === 'nav-category' && selectedNavCategory && (
         <NavCategoryPage
           category={selectedNavCategory}
-          onBack={() => { setPage('home'); scrollTop(); }}
+          onBack={() => goTo({ page: 'home' })}
           onSelectProduct={handleSelectProduct}
         />
       )}
@@ -224,7 +328,7 @@ function AppInner() {
 
       {page === 'launch-exclusive' && (
         <LaunchExclusivePage
-          onBack={() => { setPage('home'); scrollTop(); }}
+          onBack={() => goTo({ page: 'home' })}
           onSelectProduct={handleSelectProduct}
           onJoinFost={() => setAuthModal({ open: true, view: 'signup' })}
         />
@@ -232,14 +336,14 @@ function AppInner() {
 
       {page === 'one-season-off' && (
         <OneSeasonOffPage
-          onBack={() => { setPage('home'); scrollTop(); }}
+          onBack={() => goTo({ page: 'home' })}
           onSelectProduct={handleSelectProduct}
         />
       )}
 
       {page === 'fost-membership' && (
         <FostMembershipPage
-          onBack={() => { setPage('home'); scrollTop(); }}
+          onBack={() => goTo({ page: 'home' })}
           onJoin={() => setAuthModal({ open: true, view: 'signup' })}
           onLogin={() => setAuthModal({ open: true, view: 'login' })}
         />
@@ -248,7 +352,7 @@ function AppInner() {
       {page === 'account' && (
         <AccountPage
           key={accountTab}
-          onBack={() => { setPage('home'); scrollTop(); }}
+          onBack={() => goTo({ page: 'home' })}
           onSelectProduct={handleSelectProduct}
           initialTab={accountTab}
         />
