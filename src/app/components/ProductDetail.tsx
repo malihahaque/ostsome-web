@@ -30,7 +30,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const { addItem } = useCart();
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
   const [shopifyAvailability, setShopifyAvailability] = useState<Record<string, boolean>>({});
+  const [shopifyQuantity, setShopifyQuantity] = useState<Record<string, number | null>>({});
   const [variantsLoaded, setVariantsLoaded] = useState(false);
+  const [stockWarning, setStockWarning] = useState<{ requested: number; available: number; intent: 'cart' | 'checkout' } | null>(null);
 
   // Show lucky draw popup if arrived via QR (URL contains /products/)
   useEffect(() => {
@@ -50,6 +52,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       if (!sp) { setVariantsLoaded(true); return; }
       const idMap: Record<string, string> = {};
       const availMap: Record<string, boolean> = {};
+      const qtyMap: Record<string, number | null> = {};
       sp.variants.edges.forEach(({ node }) => {
         const optionValues = node.selectedOptions
           .filter(o => o.name !== 'Title' && o.value !== 'Default Title')
@@ -57,9 +60,11 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
         const key = optionValues.length > 0 ? optionValues.join('/') : 'default';
         idMap[key] = node.id;
         availMap[key] = node.availableForSale;
+        qtyMap[key] = node.quantityAvailable ?? null;
       });
       setShopifyVariants(idMap);
       setShopifyAvailability(availMap);
+      setShopifyQuantity(qtyMap);
       setVariantsLoaded(true);
     }).catch(() => setVariantsLoaded(true));
   }, [product.handle]);
@@ -141,6 +146,17 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
   }, [selectedOption1, selectedOption2, shopifyAvailability, variantsLoaded]);
 
+  // The actual stock count for the selected variant, if Shopify exposes it
+  // (requires "quantity available" visibility enabled on the Storefront API
+  // channel in Shopify Admin — Settings → Apps and sales channels →
+  // Headless → Configure). `null` means "not tracked / not exposed", in
+  // which case we don't block on it and let Shopify's cart be the final
+  // check, same as before.
+  const maxQtyAvailable = useMemo(() => {
+    const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+    return shopifyQuantity[key] ?? shopifyQuantity['default'] ?? null;
+  }, [selectedOption1, selectedOption2, shopifyQuantity]);
+
   function handleOption1Select(val: string) {
     setSelectedOption1(val);
     setSelectedOption2(null);
@@ -192,6 +208,14 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       setTimeout(() => setValidationError(null), 3500);
       return;
     }
+    // Check actual stock before adding — previously the quantity selector
+    // had no idea how many units were really in stock, so a customer could
+    // request more than was available; Shopify's real cart would then
+    // silently cap the quantity down with no explanation shown anywhere.
+    if (maxQtyAvailable !== null && qty > maxQtyAvailable) {
+      setStockWarning({ requested: qty, available: maxQtyAvailable, intent: 'cart' });
+      return;
+    }
     setValidationError(null);
     addItem({
       product,
@@ -216,6 +240,10 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       setTimeout(() => setValidationError(null), 3500);
       return;
     }
+    if (maxQtyAvailable !== null && qty > maxQtyAvailable) {
+      setStockWarning({ requested: qty, available: maxQtyAvailable, intent: 'checkout' });
+      return;
+    }
     setValidationError(null);
     addItem({
       product,
@@ -232,6 +260,34 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     onCheckout?.();
   }
 
+  // After the customer confirms the popup, either lower the quantity to
+  // what's actually available and proceed, or cancel entirely.
+  function confirmAddAvailableQty() {
+    if (!stockWarning) return;
+    const clampedQty = stockWarning.available;
+    const intent = stockWarning.intent;
+    setStockWarning(null);
+    if (clampedQty < 1) return; // nothing left to add
+    setQty(clampedQty);
+    addItem({
+      product,
+      selectedOption1,
+      selectedOption2,
+      variantPrice: activePrice,
+      variantImage: selectedVariant?.image ?? product.images[0],
+      shopifyVariantId: (() => {
+        const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+        return shopifyVariants[key] || shopifyVariants['default'] || null;
+      })(),
+      qty: clampedQty,
+    });
+    if (intent === 'checkout') onCheckout?.();
+    else {
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2000);
+    }
+  }
+
   const PRODUCT_VIDEOS: Record<string, { videoId: string; title: string; start?: number }> = {
     'looki-l1': { videoId: 'KHjibXAMLxI', title: 'Looki L1 video', start: 1 },
     'dometic-cfx5-35-performance-compressor-cooler': { videoId: 'YV7fcGkof0I', title: 'Dometic CFX5 35 video' },
@@ -244,6 +300,47 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
   return (
     <div className="min-h-screen bg-white">
+
+      {/* Stock warning popup — shown instead of silently letting Shopify
+          cap the quantity down at checkout with no explanation */}
+      {stockWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <button
+              onClick={() => setStockWarning(null)}
+              className="absolute top-3 right-3 w-8 h-8 bg-neutral-100 hover:bg-neutral-200 rounded-full flex items-center justify-center transition"
+            >
+              <X size={16} className="text-neutral-600" />
+            </button>
+            <h2 className="text-lg font-bold text-black mb-2">Limited stock</h2>
+            {stockWarning.available > 0 ? (
+              <p className="text-sm text-neutral-600 mb-5">
+                You asked for {stockWarning.requested}, but only {stockWarning.available} {stockWarning.available === 1 ? 'is' : 'are'} currently in stock. Would you like to add {stockWarning.available} instead?
+              </p>
+            ) : (
+              <p className="text-sm text-neutral-600 mb-5">
+                Sorry, this option just sold out and can't be added right now.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStockWarning(null)}
+                className="flex-1 text-sm font-semibold text-neutral-600 border border-neutral-200 py-2.5 rounded-xl hover:bg-neutral-50 transition"
+              >
+                Cancel
+              </button>
+              {stockWarning.available > 0 && (
+                <button
+                  onClick={confirmAddAvailableQty}
+                  className="flex-1 text-sm font-bold text-white bg-[#F16C10] hover:bg-[#d9610e] py-2.5 rounded-xl transition"
+                >
+                  Add {stockWarning.available}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lucky Draw Popup */}
       {showLuckyDraw && (
@@ -555,100 +652,4 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                           className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
                             selectedOption2 === val
                               ? 'bg-black text-white border-black'
-                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
-                          } ${!available ? 'opacity-40 line-through' : ''}`}
-                        >
-                          {val}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Quantity */}
-            <div className="mb-5">
-              <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wide block mb-2">Quantity</label>
-              <div className="flex items-center border border-neutral-200 rounded-lg w-fit">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">−</button>
-                <span className="w-10 text-center text-sm font-semibold">{qty}</span>
-                <button onClick={() => setQty(qty + 1)} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">+</button>
-              </div>
-            </div>
-
-            {validationError && (
-              <div className="mb-3 flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-xl animate-pulse">
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <span>{validationError}</span>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-3 mb-8">
-              {(!product.availableForSale || (selectedOption1 !== null && !selectedVariantAvailable)) ? (
-                <div className="w-full bg-neutral-100 text-neutral-400 font-bold py-4 rounded-xl flex items-center justify-center text-sm uppercase tracking-wide">
-                  Sold Out
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleAddToCart}
-                    className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm uppercase tracking-wide ${
-                      addedToCart
-                        ? 'bg-green-500 text-white'
-                        : 'bg-[#F16C10] hover:bg-[#d9610e] text-white'
-                    }`}
-                  >
-                    {addedToCart ? (
-                      <><Check size={18} /> Added to Cart</>
-                    ) : (
-                      <><ShoppingCart size={18} /> Add to Cart</>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleBuyNow}
-                    className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 rounded-xl transition-colors text-sm uppercase tracking-wide"
-                  >
-                    Buy Now
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: Truck, label: 'Free shipping', sub: 'Orders over SGD 150' },
-                { icon: Shield, label: 'Warranty', sub: '1-year coverage' },
-                { icon: RefreshCw, label: 'Easy returns', sub: '30-day policy' },
-              ].map(({ icon: Icon, label, sub }) => (
-                <div key={label} className="flex flex-col items-center text-center p-3 bg-neutral-50 rounded-xl">
-                  <Icon size={18} className="text-[#F16C10] mb-1.5" />
-                  <span className="text-xs font-semibold text-black">{label}</span>
-                  <span className="text-[10px] text-neutral-400 leading-tight">{sub}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-neutral-100 mb-6" />
-
-            <div>
-              <h2 className="text-sm font-bold text-black uppercase tracking-wide mb-4">About this product</h2>
-              <div
-                className="text-sm text-neutral-600 leading-relaxed product-description"
-                dangerouslySetInnerHTML={{ __html: product.bodyHtml }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        .product-description ul { list-style: disc; padding-left: 1.25rem; margin: 0.75rem 0; }
-        .product-description li { margin-bottom: 0.25rem; }
-        .product-description p { margin-bottom: 0.75rem; }
-        .product-description h3 { font-weight: 700; margin: 1rem 0 0.5rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .product-description strong { color: #111; font-weight: 600; }
-      `}</style>
-    </div>
-  );
-}
+                              : 'bg-white text-neutral-600 border-neutral-200 

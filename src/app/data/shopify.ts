@@ -48,6 +48,7 @@ export type ShopifyProduct = {
         price: { amount: string; currencyCode: string };
         compareAtPrice: { amount: string; currencyCode: string } | null;
         availableForSale: boolean;
+        quantityAvailable: number | null;
         selectedOptions: { name: string; value: string }[];
         image: { url: string } | null;
       };
@@ -98,7 +99,7 @@ export async function fetchAllProducts(): Promise<ShopifyProduct[]> {
               variants(first: 20) {
                 edges {
                   node {
-                    id title availableForSale
+                    id title availableForSale quantityAvailable
                     price { amount currencyCode }
                     compareAtPrice { amount currencyCode }
                     selectedOptions { name value }
@@ -137,7 +138,7 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
         variants(first: 20) {
           edges {
             node {
-              id title availableForSale
+              id title availableForSale quantityAvailable
               price { amount currencyCode }
               compareAtPrice { amount currencyCode }
               selectedOptions { name value }
@@ -500,5 +501,4 @@ export async function saveCustomerAddress(
   }>(defaultQuery, { token, id: newAddressId });
 
   const defaultErrors = defaultData.customerDefaultAddressUpdate.customerUserErrors;
-  return { success: defaultErrors.length === 0, errors: defaultErrors.map(e => e.message) };
-}
+  return { succe
