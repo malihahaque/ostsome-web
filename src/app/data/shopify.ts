@@ -501,4 +501,5 @@ export async function saveCustomerAddress(
   }>(defaultQuery, { token, id: newAddressId });
 
   const defaultErrors = defaultData.customerDefaultAddressUpdate.customerUserErrors;
-  return { succe
+  return { success: defaultErrors.length === 0, errors: defaultErrors.map(e => e.message) };
+}
