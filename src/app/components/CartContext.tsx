@@ -128,4 +128,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider value={{
-      items, addItem, removeItem, u
+      items, addItem, removeItem, updateQty, clearCart,
+      totalItems, subtotal, isFostMember, fostSubtotal, fostSavings,
+      isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false),
+      goToShopifyCheckout, checkoutLoading,
+    }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export function useCart() {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error('useCart must be used inside CartProvider');
+  return ctx;
+}
