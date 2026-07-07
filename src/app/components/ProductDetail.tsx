@@ -652,4 +652,100 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                           className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
                             selectedOption2 === val
                               ? 'bg-black text-white border-black'
-                              : 'bg-white text-neutral-600 border-neutral-200 
+                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                          } ${!available ? 'opacity-40 line-through' : ''}`}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quantity */}
+            <div className="mb-5">
+              <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wide block mb-2">Quantity</label>
+              <div className="flex items-center border border-neutral-200 rounded-lg w-fit">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">−</button>
+                <span className="w-10 text-center text-sm font-semibold">{qty}</span>
+                <button onClick={() => setQty(qty + 1)} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">+</button>
+              </div>
+            </div>
+
+            {validationError && (
+              <div className="mb-3 flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-xl animate-pulse">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <span>{validationError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 mb-8">
+              {(!product.availableForSale || (selectedOption1 !== null && !selectedVariantAvailable)) ? (
+                <div className="w-full bg-neutral-100 text-neutral-400 font-bold py-4 rounded-xl flex items-center justify-center text-sm uppercase tracking-wide">
+                  Sold Out
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleAddToCart}
+                    className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm uppercase tracking-wide ${
+                      addedToCart
+                        ? 'bg-green-500 text-white'
+                        : 'bg-[#F16C10] hover:bg-[#d9610e] text-white'
+                    }`}
+                  >
+                    {addedToCart ? (
+                      <><Check size={18} /> Added to Cart</>
+                    ) : (
+                      <><ShoppingCart size={18} /> Add to Cart</>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleBuyNow}
+                    className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 rounded-xl transition-colors text-sm uppercase tracking-wide"
+                  >
+                    Buy Now
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-8">
+              {[
+                { icon: Truck, label: 'Free shipping', sub: 'Orders over SGD 150' },
+                { icon: Shield, label: 'Warranty', sub: '1-year coverage' },
+                { icon: RefreshCw, label: 'Easy returns', sub: '30-day policy' },
+              ].map(({ icon: Icon, label, sub }) => (
+                <div key={label} className="flex flex-col items-center text-center p-3 bg-neutral-50 rounded-xl">
+                  <Icon size={18} className="text-[#F16C10] mb-1.5" />
+                  <span className="text-xs font-semibold text-black">{label}</span>
+                  <span className="text-[10px] text-neutral-400 leading-tight">{sub}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-neutral-100 mb-6" />
+
+            <div>
+              <h2 className="text-sm font-bold text-black uppercase tracking-wide mb-4">About this product</h2>
+              <div
+                className="text-sm text-neutral-600 leading-relaxed product-description"
+                dangerouslySetInnerHTML={{ __html: product.bodyHtml }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .product-description ul { list-style: disc; padding-left: 1.25rem; margin: 0.75rem 0; }
+        .product-description li { margin-bottom: 0.25rem; }
+        .product-description p { margin-bottom: 0.75rem; }
+        .product-description h3 { font-weight: 700; margin: 1rem 0 0.5rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .product-description strong { color: #111; font-weight: 600; }
+      `}</style>
+    </div>
+  );
+}
