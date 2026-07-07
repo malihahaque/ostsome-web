@@ -29,6 +29,8 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
   const { addItem } = useCart();
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
+  const [shopifyAvailability, setShopifyAvailability] = useState<Record<string, boolean>>({});
+  const [variantsLoaded, setVariantsLoaded] = useState(false);
 
   // Show lucky draw popup if arrived via QR (URL contains /products/)
   useEffect(() => {
@@ -39,20 +41,27 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     }
   }, [product.handle]);
 
-  // Fetch Shopify variant GIDs for checkout
+  // Fetch Shopify variant GIDs + live stock status for checkout & sold-out display.
+  // The static productVariants.ts data doesn't carry current stock, so a color
+  // that sold out on Shopify still showed as selectable here — this fixes that
+  // by checking availableForSale from the live Storefront API response.
   useEffect(() => {
     fetchProductByHandle(product.handle).then(sp => {
-      if (!sp) return;
-      const map: Record<string, string> = {};
+      if (!sp) { setVariantsLoaded(true); return; }
+      const idMap: Record<string, string> = {};
+      const availMap: Record<string, boolean> = {};
       sp.variants.edges.forEach(({ node }) => {
         const optionValues = node.selectedOptions
           .filter(o => o.name !== 'Title' && o.value !== 'Default Title')
           .map(o => o.value);
         const key = optionValues.length > 0 ? optionValues.join('/') : 'default';
-        map[key] = node.id;
+        idMap[key] = node.id;
+        availMap[key] = node.availableForSale;
       });
-      setShopifyVariants(map);
-    }).catch(() => {});
+      setShopifyVariants(idMap);
+      setShopifyAvailability(availMap);
+      setVariantsLoaded(true);
+    }).catch(() => setVariantsLoaded(true));
   }, [product.handle]);
 
   const variants = getVariants(product.handle);
@@ -100,6 +109,38 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const isColourOption = (name: string | null) =>
     name?.toLowerCase().includes('color') || name?.toLowerCase().includes('colour');
 
+  // A swatch is "sold out" only once we've actually loaded live Shopify data
+  // and confirmed every combo containing this value is unavailable — before
+  // the fetch resolves, we treat everything as available to avoid a flash
+  // of grey swatches on first paint.
+  function isOption1ValueAvailable(val: string): boolean {
+    if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
+    const matching = variants.filter(v => v.option1Value === val);
+    return matching.some(v => {
+      const key = [v.option1Value, v.option2Value].filter(Boolean).join('/');
+      return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
+    });
+  }
+
+  function isOption2ValueAvailable(val: string): boolean {
+    if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
+    const matching = variants.filter(v =>
+      (!selectedOption1 || v.option1Value === selectedOption1) && v.option2Value === val
+    );
+    return matching.some(v => {
+      const key = [v.option1Value, v.option2Value].filter(Boolean).join('/');
+      return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
+    });
+  }
+
+  // Whether the exact currently-selected combo is in stock — this is what
+  // gates the Add to Cart / Buy Now buttons.
+  const selectedVariantAvailable = useMemo(() => {
+    if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
+    const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+    return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
+  }, [selectedOption1, selectedOption2, shopifyAvailability, variantsLoaded]);
+
   function handleOption1Select(val: string) {
     setSelectedOption1(val);
     setSelectedOption2(null);
@@ -137,6 +178,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     }
     if (needsOption2 && !selectedOption2) {
       return `Please select a ${option2Name} before adding to cart.`;
+    }
+    if (!selectedVariantAvailable) {
+      return 'Sorry, this option is currently out of stock.';
     }
     return null;
   }
@@ -400,16 +444,17 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                   <div className="flex flex-wrap gap-2">
                     {option1Values.map((val) => {
                       const v = variants.find(vv => vv.option1Value === val && vv.image);
+                      const available = isOption1ValueAvailable(val);
                       return (
                         <button
                           key={val}
                           onClick={() => handleOption1Select(val)}
-                          title={val}
-                          className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all ${
+                          title={available ? val : `${val} — Sold out`}
+                          className={`relative w-12 h-12 rounded-xl overflow-hidden border-2 transition-all ${
                             selectedOption1 === val
                               ? 'border-[#F16C10] scale-110'
                               : 'border-neutral-200 hover:border-neutral-400'
-                          }`}
+                          } ${!available ? 'opacity-40 grayscale' : ''}`}
                         >
                           {v?.image ? (
                             <img src={v.image} alt={val} className="w-full h-full object-cover" />
@@ -418,25 +463,34 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                               {val}
                             </div>
                           )}
+                          {!available && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/40">
+                              <div className="w-full h-px bg-neutral-500 rotate-45" />
+                            </div>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {option1Values.map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => handleOption1Select(val)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                          selectedOption1 === val
-                            ? 'bg-black text-white border-black'
-                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
-                        }`}
-                      >
-                        {val}
-                      </button>
-                    ))}
+                    {option1Values.map((val) => {
+                      const available = isOption1ValueAvailable(val);
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => handleOption1Select(val)}
+                          title={available ? undefined : `${val} — Sold out`}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                            selectedOption1 === val
+                              ? 'bg-black text-white border-black'
+                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                          } ${!available ? 'opacity-40 line-through' : ''}`}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -461,16 +515,17 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                         (!selectedOption1 || vv.option1Value === selectedOption1) &&
                         vv.option2Value === val
                       );
+                      const available = isOption2ValueAvailable(val);
                       return (
                         <button
                           key={val}
                           onClick={() => handleOption2Select(val)}
-                          title={val}
-                          className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all ${
+                          title={available ? val : `${val} — Sold out`}
+                          className={`relative w-12 h-12 rounded-xl overflow-hidden border-2 transition-all ${
                             selectedOption2 === val
                               ? 'border-[#F16C10] scale-110'
                               : 'border-neutral-200 hover:border-neutral-400'
-                          }`}
+                          } ${!available ? 'opacity-40 grayscale' : ''}`}
                         >
                           {v?.image ? (
                             <img src={v.image} alt={val} className="w-full h-full object-cover" />
@@ -479,25 +534,34 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                               {val}
                             </div>
                           )}
+                          {!available && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/40">
+                              <div className="w-full h-px bg-neutral-500 rotate-45" />
+                            </div>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {option2Values.map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => setSelectedOption2(val)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                          selectedOption2 === val
-                            ? 'bg-black text-white border-black'
-                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
-                        }`}
-                      >
-                        {val}
-                      </button>
-                    ))}
+                    {option2Values.map((val) => {
+                      const available = isOption2ValueAvailable(val);
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => setSelectedOption2(val)}
+                          title={available ? undefined : `${val} — Sold out`}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                            selectedOption2 === val
+                              ? 'bg-black text-white border-black'
+                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                          } ${!available ? 'opacity-40 line-through' : ''}`}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -507,84 +571,4 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
             <div className="mb-5">
               <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wide block mb-2">Quantity</label>
               <div className="flex items-center border border-neutral-200 rounded-lg w-fit">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">−</button>
-                <span className="w-10 text-center text-sm font-semibold">{qty}</span>
-                <button onClick={() => setQty(qty + 1)} className="w-10 h-10 flex items-center justify-center text-neutral-600 hover:text-black transition text-xl font-light">+</button>
-              </div>
-            </div>
-
-            {validationError && (
-              <div className="mb-3 flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-4 py-3 rounded-xl animate-pulse">
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <span>{validationError}</span>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-3 mb-8">
-              {!product.availableForSale ? (
-                <div className="w-full bg-neutral-100 text-neutral-400 font-bold py-4 rounded-xl flex items-center justify-center text-sm uppercase tracking-wide">
-                  Sold Out
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleAddToCart}
-                    className={`w-full font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-sm uppercase tracking-wide ${
-                      addedToCart
-                        ? 'bg-green-500 text-white'
-                        : 'bg-[#F16C10] hover:bg-[#d9610e] text-white'
-                    }`}
-                  >
-                    {addedToCart ? (
-                      <><Check size={18} /> Added to Cart</>
-                    ) : (
-                      <><ShoppingCart size={18} /> Add to Cart</>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleBuyNow}
-                    className="w-full bg-black hover:bg-neutral-800 text-white font-bold py-4 rounded-xl transition-colors text-sm uppercase tracking-wide"
-                  >
-                    Buy Now
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: Truck, label: 'Free shipping', sub: 'Orders over SGD 150' },
-                { icon: Shield, label: 'Warranty', sub: '1-year coverage' },
-                { icon: RefreshCw, label: 'Easy returns', sub: '30-day policy' },
-              ].map(({ icon: Icon, label, sub }) => (
-                <div key={label} className="flex flex-col items-center text-center p-3 bg-neutral-50 rounded-xl">
-                  <Icon size={18} className="text-[#F16C10] mb-1.5" />
-                  <span className="text-xs font-semibold text-black">{label}</span>
-                  <span className="text-[10px] text-neutral-400 leading-tight">{sub}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-neutral-100 mb-6" />
-
-            <div>
-              <h2 className="text-sm font-bold text-black uppercase tracking-wide mb-4">About this product</h2>
-              <div
-                className="text-sm text-neutral-600 leading-relaxed product-description"
-                dangerouslySetInnerHTML={{ __html: product.bodyHtml }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        .product-description ul { list-style: disc; padding-left: 1.25rem; margin: 0.75rem 0; }
-        .product-description li { margin-bottom: 0.25rem; }
-        .product-description p { margin-bottom: 0.75rem; }
-        .product-description h3 { font-weight: 700; margin: 1rem 0 0.5rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .product-description strong { color: #111; font-weight: 600; }
-      `}</style>
-    </div>
-  );
-}
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 
