@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Product } from '../data/products';
-import { createCart, addToCart, removeFromCart, updateCartLine } from '../data/shopify';
+import { createCart, addToCart, removeFromCart, updateCartLine, getCart } from '../data/shopify';
 import { useAuth } from './AuthContext';
 import { FOST_DISCOUNT_CODE, getFostPrice } from '../data/pricing';
 
@@ -34,13 +34,68 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | null>(null);
 
+const CART_STORAGE_KEY = 'ostsome_cart_items';
+const PENDING_CHECKOUT_KEY = 'ostsome_pending_checkout_cart_id';
+
+function loadPersistedCart(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user, shopifyToken } = useAuth();
   const isFostMember = Boolean(user);
 
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => loadPersistedCart());
   const [isOpen, setIsOpen] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  // Persist the cart to localStorage on every change, so refreshing the
+  // page or navigating back from checkout (via the logo, or the browser's
+  // own back button) no longer wipes out items the customer hadn't
+  // actually purchased yet — cart state used to live only in memory.
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Storage can fail (private browsing, storage full) — not worth
+      // surfacing to the customer, the cart just won't persist that time.
+    }
+  }, [items]);
+
+  // Universal auto-clear: when checkout was initiated, we stashed the exact
+  // Shopify cart ID we created (see goToShopifyCheckout below). On load, if
+  // there's a pending cart ID, ask Shopify whether that cart still exists.
+  // Shopify automatically deletes a cart the moment its checkout completes
+  // and becomes an order — so if the cart is gone, the purchase went
+  // through and we can safely clear the local cart. If it still exists,
+  // checkout was abandoned, so we leave the local cart untouched. This
+  // works identically for guests and logged-in FOST members, since it
+  // doesn't depend on a customer account at all.
+  useEffect(() => {
+    const pendingCartId = localStorage.getItem(PENDING_CHECKOUT_KEY);
+    if (!pendingCartId) return;
+    let cancelled = false;
+
+    getCart(pendingCartId).then(cart => {
+      if (cancelled) return;
+      if (!cart) {
+        // Cart is gone — checkout completed, safe to clear.
+        setItems([]);
+      }
+      // Either way, we've resolved this pending checkout; stop tracking it.
+      localStorage.removeItem(PENDING_CHECKOUT_KEY);
+    }).catch(() => {
+      // Best-effort — if the check fails, leave everything as-is and try
+      // again next time the app loads (don't clear the marker on error).
+    });
+
+    return () => { cancelled = true; };
+  }, []);
 
   const addItem = useCallback((incoming: Omit<CartItem, 'qty'> & { qty?: number }) => {
     const qty = incoming.qty ?? 1;
@@ -127,14 +182,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cart = await addToCart(cart.id, item.shopifyVariantId!, item.qty);
       }
 
-      // Navigate to Shopify's hosted checkout in the SAME tab.
-      // Using window.open(..., '_blank') left the original ostsome.com tab
-      // alive in the background with stale cart state — since that tab
-      // never gets any signal that checkout completed, the cart appeared
-      // to still contain the purchased item. Navigating in the same tab
-      // means the cart naturally resets on the next page load (cart state
-      // lives in memory only, not localStorage), and "continue shopping"
-      // returns the customer to a fresh ostsome.com session.
+      // Stash this exact cart's ID so that on the next app load we can ask
+      // Shopify whether it still exists — if it's gone, the checkout
+      // completed (see the pending-checkout effect above), and we clear
+      // the local cart then. This works the same for guests and logged-in
+      // FOST members alike.
+      localStorage.setItem(PENDING_CHECKOUT_KEY, cart.id);
+
+      // Navigate to Shopify's hosted checkout in the SAME tab. The cart is
+      // now persisted to localStorage (see loadPersistedCart / the save
+      // effect above), so this no longer wipes it out if the customer
+      // comes back via the logo or the browser's back button without
+      // completing the purchase.
       window.location.href = cart.checkoutUrl;
     } catch (err) {
       console.error('Checkout error:', err);

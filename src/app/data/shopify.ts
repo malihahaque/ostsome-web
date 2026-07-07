@@ -155,6 +155,21 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
 
 // ─── CART ─────────────────────────────────────────────────────────────────────
 
+// Checks whether a previously-created cart still exists. Shopify deletes a
+// cart automatically once its checkout completes and becomes an order —
+// so if this returns null for a cart ID we created, that's a reliable
+// signal the purchase went through (works identically for guests and
+// logged-in customers, since it doesn't depend on customer accounts at all).
+export async function getCart(cartId: string): Promise<{ id: string } | null> {
+  const query = `
+    query GetCart($cartId: ID!) {
+      cart(id: $cartId) { id }
+    }
+  `;
+  const data = await storefrontFetch<{ cart: { id: string } | null }>(query, { cartId });
+  return data.cart;
+}
+
 export async function createCart(discountCodes?: string[], customerAccessToken?: string): Promise<ShopifyCart> {
   const query = `
     mutation CreateCart($discountCodes: [String!], $buyerIdentity: CartBuyerIdentityInput) {
