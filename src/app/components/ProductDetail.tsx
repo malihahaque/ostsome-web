@@ -27,7 +27,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showLuckyDraw, setShowLuckyDraw] = useState(false);
 
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
   const [shopifyAvailability, setShopifyAvailability] = useState<Record<string, boolean>>({});
   const [shopifyQuantity, setShopifyQuantity] = useState<Record<string, number | null>>({});
@@ -157,6 +157,21 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     return shopifyQuantity[key] ?? shopifyQuantity['default'] ?? null;
   }, [selectedOption1, selectedOption2, shopifyQuantity]);
 
+  // How many of this exact product + variant combo are already sitting in
+  // the cart from a previous add. Without this, two separate adds of 1
+  // each would both pass the stock check individually, even though
+  // together they exceed what's actually in stock — the check needs to
+  // look at the total, not just the newly-requested amount in isolation.
+  const alreadyInCartQty = useMemo(() => {
+    return cartItems
+      .filter(i =>
+        i.product.handle === product.handle &&
+        i.selectedOption1 === selectedOption1 &&
+        i.selectedOption2 === selectedOption2
+      )
+      .reduce((sum, i) => sum + i.qty, 0);
+  }, [cartItems, product.handle, selectedOption1, selectedOption2]);
+
   function handleOption1Select(val: string) {
     setSelectedOption1(val);
     setSelectedOption2(null);
@@ -212,8 +227,12 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     // had no idea how many units were really in stock, so a customer could
     // request more than was available; Shopify's real cart would then
     // silently cap the quantity down with no explanation shown anywhere.
-    if (maxQtyAvailable !== null && qty > maxQtyAvailable) {
-      setStockWarning({ requested: qty, available: maxQtyAvailable, intent: 'cart' });
+    // We also have to account for what's already in the cart from a prior
+    // add — otherwise two separate adds of 1 each could each individually
+    // pass the check while together exceeding actual stock.
+    const remainingStock = maxQtyAvailable !== null ? Math.max(0, maxQtyAvailable - alreadyInCartQty) : null;
+    if (remainingStock !== null && qty > remainingStock) {
+      setStockWarning({ requested: qty, available: remainingStock, intent: 'cart' });
       return;
     }
     setValidationError(null);
@@ -240,8 +259,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       setTimeout(() => setValidationError(null), 3500);
       return;
     }
-    if (maxQtyAvailable !== null && qty > maxQtyAvailable) {
-      setStockWarning({ requested: qty, available: maxQtyAvailable, intent: 'checkout' });
+    const remainingStock = maxQtyAvailable !== null ? Math.max(0, maxQtyAvailable - alreadyInCartQty) : null;
+    if (remainingStock !== null && qty > remainingStock) {
+      setStockWarning({ requested: qty, available: remainingStock, intent: 'checkout' });
       return;
     }
     setValidationError(null);
