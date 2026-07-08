@@ -46,10 +46,33 @@ type NavState = {
 };
 
 function buildUrl(state: NavState): string {
-  if (state.page === 'product-detail' && state.productHandle) {
-    return `/products/${state.productHandle}`;
+  switch (state.page) {
+    case 'product-detail':
+      return state.productHandle ? `/products/${state.productHandle}` : '/products';
+    case 'products':
+      return state.search ? `/products?q=${encodeURIComponent(state.search)}` : '/products';
+    case 'brands':
+      return '/brands';
+    case 'brand-detail':
+      return state.brand ? `/brands/${encodeURIComponent(state.brand)}` : '/brands';
+    case 'nav-category':
+      return state.navCategory ? `/category/${encodeURIComponent(state.navCategory)}` : '/';
+    case 'account':
+      return state.accountTab ? `/account?tab=${state.accountTab}` : '/account';
+    case 'admin':
+      return '/admin';
+    case 'launch-exclusive':
+      return '/launch';
+    case 'one-season-off':
+      return '/clearance';
+    case 'fost-membership':
+      return '/fost';
+    case 'checkout':
+      return '/checkout';
+    case 'home':
+    default:
+      return '/';
   }
-  return '/';
 }
 
 function AppInner() {
@@ -168,15 +191,54 @@ function AppInner() {
     };
     window.addEventListener('keydown', handler);
 
-    // Handle /products/[handle] URL routing
+    // Handle deep links / refreshes for every page type buildUrl() can produce
     const path = window.location.pathname;
+    const search = new URLSearchParams(window.location.search);
+
     const productMatch = path.match(/^\/products\/([^?]+)/);
-    if (productMatch && liveProducts.length > 0) {
-      const handle = productMatch[1];
-      const found = liveProducts.find(p => p.handle === handle);
-      if (found) {
-        goTo({ page: 'product-detail', product: found }, { replace: true, scroll: false });
+    const brandMatch = path.match(/^\/brands\/([^?]+)/);
+    const categoryMatch = path.match(/^\/category\/([^?]+)/);
+
+    if (productMatch) {
+      // We're on a /products/[handle] URL. liveProducts may still be
+      // loading (starts as an empty array on first mount) — if we fell
+      // through to the "no match, reset to home" branch below while it
+      // was still empty, we'd wipe out the URL before products even had
+      // a chance to load, permanently losing the deep link (this is
+      // exactly what broke QR code landings on a fresh, uncached visit).
+      // So: only act once liveProducts has actually loaded; until then,
+      // do nothing and let this effect re-run when it does.
+      if (liveProducts.length > 0) {
+        const handle = decodeURIComponent(productMatch[1]);
+        const found = liveProducts.find(p => p.handle === handle);
+        if (found) {
+          goTo({ page: 'product-detail', product: found }, { replace: true, scroll: false });
+        }
+        // If genuinely not found even after products loaded, leave the
+        // URL as-is rather than forcing a redirect — avoids false
+        // negatives from a slow/partial fetch being mistaken for "product
+        // doesn't exist".
       }
+    } else if (path === '/account' || path.startsWith('/account/')) {
+      // Deep link used by the Shopify order-confirmation email's "View your
+      // order" button, so customers land on our own account/orders page
+      // instead of Shopify's default hosted order-status page.
+      const tab = (search.get('tab') as AccountTab) || 'orders';
+      goTo({ page: 'account', accountTab: tab }, { replace: true, scroll: false });
+    } else if (path === '/products') {
+      goTo({ page: 'products', search: search.get('q') ?? '' }, { replace: true, scroll: false });
+    } else if (path === '/brands') {
+      goTo({ page: 'brands' }, { replace: true, scroll: false });
+    } else if (brandMatch) {
+      goTo({ page: 'brand-detail', brand: decodeURIComponent(brandMatch[1]) }, { replace: true, scroll: false });
+    } else if (categoryMatch) {
+      goTo({ page: 'nav-category', navCategory: decodeURIComponent(categoryMatch[1]) }, { replace: true, scroll: false });
+    } else if (path === '/launch') {
+      goTo({ page: 'launch-exclusive' }, { replace: true, scroll: false });
+    } else if (path === '/clearance') {
+      goTo({ page: 'one-season-off' }, { replace: true, scroll: false });
+    } else if (path === '/fost') {
+      goTo({ page: 'fost-membership' }, { replace: true, scroll: false });
     } else if (window.location.hash !== '#admin') {
       // Establish an initial history entry for the home page so that
       // pressing "back" from the very first navigation has somewhere
