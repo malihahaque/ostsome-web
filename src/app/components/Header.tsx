@@ -53,7 +53,7 @@ export function Header({ onNavToProducts, onNavToHome, onNavToBrands, onNavToCat
     },
     {
       icon: '👑',
-      label: 'FOST Member Perk',
+      label: 'FOST Rewards',
       title: 'Log in as a FOST member',
       sub: 'Unlock exclusive FOST prices →',
       isFost: true,
