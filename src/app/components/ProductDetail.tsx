@@ -16,9 +16,46 @@ type ProductDetailProps = {
 
 const RUBYOUNG_SPIN_HANDLES = ['rubyoung-spin'];
 
+// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
+// Must stay in sync with the same window in Hero.tsx and the caps in
+// flash-sale-webhook.js — all three should always agree on this timing.
+const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
+const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+
+// TODO: replace with the real product handles — the part of the URL after
+// /products/ on the live site (e.g. ostsome.com/products/THIS-PART).
+// These are hardcoded rather than fetched live because the automatic
+// discount only affects checkout/cart totals, not the PDP price by
+// default — this shows customers the real checkout price up front instead
+// of them only seeing it once they add to cart.
+const FLASH_SALE_PRICES: Record<string, number> = {
+  "skullcandy-aviator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch": 199.0,
+};
+
+function useFlashSaleActive() {
+  const inWindow = () => {
+    const now = Date.now();
+    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
+  };
+  const [isActive, setIsActive] = useState(inWindow);
+
+  useEffect(() => {
+    const tick = () => setIsActive(inWindow());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return isActive;
+}
+
 export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProps) {
   const { user } = useAuth();
   const isFostMember = Boolean(user);
+  const flashSaleActive = useFlashSaleActive();
+  const flashSalePrice = FLASH_SALE_PRICES[product.handle];
+  const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
   const [activeImg, setActiveImg] = useState(0);
   const [qty, setQty] = useState(1);
   const [selectedOption1, setSelectedOption1] = useState<string | null>(null);
@@ -515,7 +552,24 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
               <span className="text-xs text-neutral-400">(24 reviews)</span>
             </div>
 
-            {isFostMember ? (
+            {showFlashPrice ? (
+              <div className="mb-1">
+                <div className="mb-1.5">
+                  <span className="text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-pink-500 px-2 py-0.5 rounded-full uppercase tracking-wide animate-pulse">
+                    Flash Deal — Ends 8PM
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">
+                    SGD {flashSalePrice!.toFixed(2)}
+                  </span>
+                  <span className="text-lg text-neutral-400 line-through">SGD {activePrice.toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">
+                  FOST Friday Flash Deal price — applied automatically at checkout, while stock lasts.
+                </p>
+              </div>
+            ) : isFostMember ? (
               <div className="mb-1">
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl font-bold text-[#F16C10]">SGD {getFostPrice(activePrice).toFixed(2)}</span>
@@ -542,7 +596,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
             {isFostMember && <div className="mb-5" />}
 
             <p className="text-xs text-neutral-500 mb-6 bg-neutral-50 border border-neutral-100 rounded-lg px-3 py-2">
-              Or 3 payments of <strong className="text-black">SGD {((isFostMember ? getFostPrice(activePrice) : activePrice) / 3).toFixed(2)}</strong> with Atome. Taxes included.
+              Or 3 payments of <strong className="text-black">SGD {((showFlashPrice ? flashSalePrice! : isFostMember ? getFostPrice(activePrice) : activePrice) / 3).toFixed(2)}</strong> with Atome. Taxes included.
             </p>
 
             {/* Option 1 */}
