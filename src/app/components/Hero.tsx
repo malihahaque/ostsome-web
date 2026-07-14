@@ -1,6 +1,6 @@
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import heroBanner from "../../imports/1-1.png";
 import banner1 from "../../imports/2-1.png";
 import banner2 from "../../imports/3-1.png";
@@ -52,7 +52,7 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
     <div className="flex flex-col items-center leading-none">
       <span
         className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500"
-        style={{ fontSize: "clamp(0.8rem, 2.1vw, 2rem)" }}
+        style={{ fontSize: "clamp(0.9rem, 2.3vw, 2.2rem)" }}
       >
         {value}
       </span>
@@ -66,61 +66,60 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
   );
 }
 
-// Overlay that sits on top of the static clock graphic in the flash sale banner.
-// Positioned by percentage so it scales with the responsive banner width/height.
-// Fine-tune the left/top/width/height values once you see it live against the real asset.
+// Fully opaque badge that covers the static clock graphic baked into the banner
+// image, and rebuilds the same pill/border/clock-icon look in code so the live
+// numbers never overlap or double-render against the exported asset.
+//
+// NOTE: "bg-[#0a0e1a]" is an estimate of the banner's dark navy background.
+// Use the color picker on the real exported PNG and swap in the exact hex so
+// the badge blends in seamlessly rather than showing as a visible box.
 function FlashSaleCountdown() {
   const { state, days, hours, minutes } = useSaleState();
 
   const boxStyle = {
-    left: "39%",
-    top: "29%",
-    width: "23%",
-    height: "10%",
+    left: "38%",
+    top: "27%",
+    width: "25%",
+    height: "12%",
   };
 
-  if (state === "live") {
-    return (
-      <div
-        className="absolute flex items-center justify-center pointer-events-none z-10"
-        style={boxStyle}
-      >
+  return (
+    <div
+      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-pink-500/70 bg-[#0a0e1a] px-[3%]"
+      style={boxStyle}
+    >
+      {state === "live" && (
         <span
           className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 tracking-wide animate-pulse"
           style={{ fontSize: "clamp(0.9rem, 2.4vw, 2.1rem)" }}
         >
           SALE LIVE
         </span>
-      </div>
-    );
-  }
+      )}
 
-  if (state === "ended") {
-    return (
-      <div
-        className="absolute flex items-center justify-center pointer-events-none z-10"
-        style={boxStyle}
-      >
+      {state === "ended" && (
         <span
-          className="font-extrabold text-white/90 tracking-wide"
-          style={{ fontSize: "clamp(0.65rem, 1.5vw, 1.3rem)" }}
+          className="font-extrabold text-white/90 tracking-wide text-center"
+          style={{ fontSize: "clamp(0.55rem, 1.3vw, 1.15rem)" }}
         >
           NEW DEALS COMING SOON
         </span>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div
-      className="absolute flex items-center justify-center gap-[4%] pointer-events-none z-10"
-      style={boxStyle}
-    >
-      <CountdownUnit value={days} label="DAYS" />
-      <div className="w-px h-full bg-pink-500/40" />
-      <CountdownUnit value={hours} label="HOURS" />
-      <div className="w-px h-full bg-pink-500/40" />
-      <CountdownUnit value={minutes} label="MINS" />
+      {state === "countdown" && (
+        <div className="flex items-center justify-center gap-[3%] w-full h-full">
+          <Clock
+            className="text-pink-500 shrink-0"
+            style={{ width: "14%", height: "45%" }}
+          />
+          <div className="w-px h-2/3 bg-pink-500/40" />
+          <CountdownUnit value={days} label="DAYS" />
+          <div className="w-px h-2/3 bg-pink-500/40" />
+          <CountdownUnit value={hours} label="HOURS" />
+          <div className="w-px h-2/3 bg-pink-500/40" />
+          <CountdownUnit value={minutes} label="MINS" />
+        </div>
+      )}
     </div>
   );
 }
