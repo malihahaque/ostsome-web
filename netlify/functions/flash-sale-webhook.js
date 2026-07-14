@@ -13,7 +13,7 @@
 const crypto = require("crypto");
 
 const SHOP = "outdoor-sports-travel.myshopify.com";
-const API_VERSION = "2024-10";
+const API_VERSION = "2026-07";
 const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
