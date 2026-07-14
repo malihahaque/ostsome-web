@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Package, Truck, CheckCircle, Clock, Search, X, RefreshCw, Lock, TrendingUp, ShoppingBag, DollarSign, ChevronDown, ChevronUp } from 'lucide-react';
-import { fetchAdminOrders } from '../data/shopifyAdmin';
+import { fetchAdminOrders, adminLogin, adminLogout, getValidSessionToken } from '../data/shopifyAdmin';
 import type { AdminOrder } from '../data/shopifyAdmin';
-
-const ADMIN_PASSWORD = 'ostsome2024';
 
 function getStatusStyle(financial: string, fulfillment: string | null) {
   if (fulfillment === 'fulfilled') return { label: 'Delivered', color: 'bg-green-50 text-green-600 border-green-200', icon: CheckCircle };
@@ -36,10 +34,19 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
 function AdminLogin({ onLogin }: { onLogin: () => void }) {
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
 
-  function handleSubmit() {
-    if (pw === ADMIN_PASSWORD) { onLogin(); }
-    else { setError('Incorrect password'); }
+  async function handleSubmit() {
+    if (checking) return;
+    setChecking(true);
+    setError('');
+    try {
+      await adminLogin(pw);
+      onLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Incorrect password');
+    }
+    setChecking(false);
   }
 
   return (
@@ -70,9 +77,10 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
           </div>
           <button
             onClick={handleSubmit}
-            className="w-full bg-[#F16C10] hover:bg-[#d65f0e] text-white font-bold py-3 rounded-xl transition text-sm"
+            disabled={checking}
+            className="w-full bg-[#F16C10] hover:bg-[#d65f0e] disabled:opacity-60 text-white font-bold py-3 rounded-xl transition text-sm"
           >
-            Access Dashboard
+            {checking ? 'Checking…' : 'Access Dashboard'}
           </button>
         </div>
       </div>
@@ -81,7 +89,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
 }
 
 // ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
-function Dashboard() {
+function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +117,10 @@ function Dashboard() {
       setOrders(data);
       setLastRefresh(new Date());
     } catch (err) {
+      if (err instanceof Error && err.message.includes('Session expired')) {
+        onLogout();
+        return;
+      }
       setError('Failed to load orders. Check your network connection.');
     }
     setLoading(false);
@@ -149,14 +161,23 @@ function Dashboard() {
           <h1 className="text-lg font-bold text-black">Orders Dashboard</h1>
           <p className="text-xs text-neutral-400">Last updated: {lastRefresh.toLocaleTimeString('en-SG')}</p>
         </div>
-        <button
-          onClick={loadOrders}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-neutral-200 rounded-xl hover:bg-neutral-50 transition disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadOrders}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-neutral-200 rounded-xl hover:bg-neutral-50 transition disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-neutral-200 rounded-xl hover:bg-neutral-50 transition text-neutral-500"
+          >
+            <Lock size={14} />
+            Log out
+          </button>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -338,15 +359,17 @@ function Dashboard() {
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 export function AdminDashboard() {
-  const [authed, setAuthed] = useState(() =>
-    sessionStorage.getItem('ostsome_admin') === 'true'
-  );
+  const [authed, setAuthed] = useState(() => Boolean(getValidSessionToken()));
 
   function handleLogin() {
-    sessionStorage.setItem('ostsome_admin', 'true');
     setAuthed(true);
   }
 
+  function handleLogout() {
+    adminLogout();
+    setAuthed(false);
+  }
+
   if (!authed) return <AdminLogin onLogin={handleLogin} />;
-  return <Dashboard />;
+  return <Dashboard onLogout={handleLogout} />;
 }
