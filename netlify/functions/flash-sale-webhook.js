@@ -3,9 +3,12 @@
 // Listens for Shopify's `orders/paid` webhook. Whenever a paid order includes
 // one of the two flash-sale variants, it re-tallies total units sold since
 // SALE_START directly from Shopify (no separate database — Shopify's order
-// history is the source of truth on every check). Once either product hits
-// its cap, it immediately deactivates the automatic discount so the deal
-// stops applying to any orders after that point.
+// history is the source of truth on every check). The Aviator and Tank T4
+// each have their OWN automatic discount (different fixed $ amounts, since
+// they're priced too differently for one shared discount to hit both exact
+// target prices) — so when one product hits its 5-unit cap, only THAT
+// product's discount gets deactivated; the other keeps running until it
+// hits its own cap or the sale window ends.
 
 const crypto = require("crypto");
 
@@ -18,20 +21,23 @@ const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 // Find these in Shopify Admin > Products > [product] > variant, the URL
 // contains the numeric ID, e.g. .../variants/44771234567890
 // -> gid://shopify/ProductVariant/44771234567890
+//
+// Each product gets its OWN automatic discount (fixed $ off) because the two
+// products are priced too differently for one shared discount to hit both
+// exact target prices. discountTitle must exactly match the title of that
+// product's discount in Shopify Admin.
 const DEAL_VARIANTS = {
-  "gid://shopify/ProductVariant/REPLACE_WITH_AVIATOR_900_ANC_VARIANT_ID": {
+  "gid://shopify/ProductVariant/48739508322442": {
     name: "Aviator 900 ANC",
     cap: 5,
+    discountTitle: "Friday Flash Deal — Aviator 900 ANC",
   },
-  "gid://shopify/ProductVariant/REPLACE_WITH_TANK_T4_BLACK_VARIANT_ID": {
+  "gid://shopify/ProductVariant/49456571252874": {
     name: "Tank T4 Black",
     cap: 5,
+    discountTitle: "Friday Flash Deal — Tank T4",
   },
 };
-
-// TODO: must exactly match the title of the automatic discount you create
-// in Shopify Admin (Discounts > Create discount).
-const DISCOUNT_TITLE = "Friday Flash Deal";
 
 // Sale window start — used to scope the order query so we only count units
 // sold under this specific drop, not historical sales of the same products.
@@ -108,7 +114,7 @@ async function getDealUnitsSold() {
   return totals;
 }
 
-async function findAutomaticDiscountId() {
+async function findAutomaticDiscountId(title) {
   const data = await shopifyGraphQL(
     `
     query FindDiscount($query: String!) {
@@ -117,17 +123,17 @@ async function findAutomaticDiscountId() {
       }
     }
   `,
-    { query: `title:'${DISCOUNT_TITLE}'` }
+    { query: `title:'${title}'` }
   );
 
   return data.discountNodes.edges[0]?.node?.id ?? null;
 }
 
-async function deactivateDiscount() {
-  const id = await findAutomaticDiscountId();
+async function deactivateDiscount(title) {
+  const id = await findAutomaticDiscountId(title);
   if (!id) {
     console.error(
-      `Could not find automatic discount titled "${DISCOUNT_TITLE}" to deactivate — check the title matches exactly.`
+      `Could not find automatic discount titled "${title}" to deactivate — check the title matches exactly.`
     );
     return;
   }
@@ -148,7 +154,7 @@ async function deactivateDiscount() {
   if (errors?.length) {
     console.error("Failed to deactivate discount:", errors);
   } else {
-    console.log(`Deactivated "${DISCOUNT_TITLE}" — cap reached.`);
+    console.log(`Deactivated "${title}" — cap reached.`);
   }
 }
 
@@ -170,12 +176,12 @@ exports.handler = async (event) => {
     }
 
     const totals = await getDealUnitsSold();
-    const capReached = Object.entries(totals).some(
+    const capsReached = Object.entries(totals).filter(
       ([variantId, qty]) => qty >= DEAL_VARIANTS[variantId].cap
     );
 
-    if (capReached) {
-      await deactivateDiscount();
+    for (const [variantId] of capsReached) {
+      await deactivateDiscount(DEAL_VARIANTS[variantId].discountTitle);
     }
 
     return { statusCode: 200, body: JSON.stringify(totals) };
