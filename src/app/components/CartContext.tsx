@@ -3,24 +3,7 @@ import type { Product } from '../data/products';
 import { createCart, addToCart, removeFromCart, updateCartLine, getCart } from '../data/shopify';
 import { useAuth } from './AuthContext';
 import { FOST_DISCOUNT_CODE, getFostPrice } from '../data/pricing';
-
-// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
-// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
-// ProductCard.tsx, WhatsNewThisWeek.tsx, CartDrawer.tsx, and the caps in
-// flash-sale-webhook.js.
-const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
-const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
-
-// TODO: must match the same handles used in the other flash-sale files.
-const FLASH_SALE_PRICES: Record<string, number> = {
-  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
-  "kospet-tank-t4-smartwatch-black-silver": 199.0,
-};
-
-function isFlashSaleActive(): boolean {
-  const now = Date.now();
-  return now >= FLASH_SALE_START && now < FLASH_SALE_END;
-}
+import { isFlashSaleActiveNow, getFlashPrice, FLASH_SALE_PRICES } from '../data/flashSale';
 
 export type CartItem = {
   product: Product;
@@ -196,7 +179,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const cartHasFlashItem = items.some(
         i => FLASH_SALE_PRICES[i.product.handle] !== undefined
       );
-      const skipFostCode = isFlashSaleActive() && cartHasFlashItem;
+      const skipFostCode = isFlashSaleActiveNow() && cartHasFlashItem;
 
       // Create a Shopify cart with the first item. For FOST members, pass the
       // FOST5 discount code so the 5% off is applied on Shopify's side too —
@@ -238,7 +221,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const totalItems = items.reduce((sum, i) => sum + i.qty, 0);
   const subtotal = items.reduce((sum, i) => sum + i.variantPrice * i.qty, 0);
-  const flashActiveNow = isFlashSaleActive();
+  const flashActiveNow = isFlashSaleActiveNow();
   const effectivePrice = (i: CartItem) => {
     const flashPrice = FLASH_SALE_PRICES[i.product.handle];
     if (isFostMember && flashActiveNow && flashPrice !== undefined) return flashPrice;

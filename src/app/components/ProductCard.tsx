@@ -1,49 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ShoppingCart, Eye } from 'lucide-react';
 import type { Product } from '../data/products';
 import { useAuth } from './AuthContext';
 import { getFostPrice } from '../data/pricing';
+import { useFlashSaleActive, getFlashPrice } from '../data/flashSale';
 
 type ProductCardProps = {
   product: Product;
   onClick: (product: Product) => void;
 };
 
-// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
-// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
-// and the caps in flash-sale-webhook.js.
-const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
-const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
-
-// TODO: must match the same handles used in ProductDetail.tsx exactly.
-const FLASH_SALE_PRICES: Record<string, number> = {
-  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
-  "kospet-tank-t4-smartwatch-black-silver": 199.0,
-};
-
-function useFlashSaleActive() {
-  const inWindow = () => {
-    const now = Date.now();
-    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
-  };
-  const [isActive, setIsActive] = useState(inWindow);
-
-  useEffect(() => {
-    const tick = () => setIsActive(inWindow());
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return isActive;
-}
-
 export function ProductCard({ product, onClick }: ProductCardProps) {
   const [imgIdx, setImgIdx] = useState(0);
   const { user } = useAuth();
   const isFostMember = Boolean(user);
   const flashSaleActive = useFlashSaleActive();
-  const flashSalePrice = FLASH_SALE_PRICES[product.handle];
+  const flashSalePrice = getFlashPrice(product.handle);
   const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
   const hasDiscount = product.comparePrice && product.comparePrice > product.price;
   const discountPct = hasDiscount

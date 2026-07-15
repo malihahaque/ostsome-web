@@ -7,21 +7,18 @@ import banner2 from "../../imports/3-1.png";
 import banner3 from "../../imports/5.png";
 import banner4 from "../../imports/4-1.png";
 // TODO: replace with your actual exported 1800x600 flash sale banner filename
-import flashSaleBanner from "../../imports/Friday Flash Deal.png";
+import flashSaleBanner from "../../imports/flash-sale-1.png";
+import { FLASH_SALE_START, FLASH_SALE_END } from "../data/flashSale";
 
 const banners = [flashSaleBanner, heroBanner, banner1, banner2, banner3, banner4];
-
-// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8)
-const SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
-const SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
 
 type SaleState = "countdown" | "live" | "ended";
 
 function useSaleState() {
   const getState = (): { state: SaleState; timeLeft: number } => {
     const now = Date.now();
-    if (now < SALE_START) return { state: "countdown", timeLeft: SALE_START - now };
-    if (now < SALE_END) return { state: "live", timeLeft: SALE_END - now };
+    if (now < FLASH_SALE_START) return { state: "countdown", timeLeft: FLASH_SALE_START - now };
+    if (now < FLASH_SALE_END) return { state: "live", timeLeft: FLASH_SALE_END - now };
     return { state: "ended", timeLeft: 0 };
   };
 

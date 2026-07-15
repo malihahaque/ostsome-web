@@ -7,6 +7,7 @@ import { useAuth } from './AuthContext';
 import { fetchProductByHandle } from '../data/shopify';
 import { getFostPrice } from '../data/pricing';
 import luckyDrawImg from '../../imports/rubyoung-lucky-draw.jpg';
+import { useFlashSaleActive, getFlashPrice } from '../data/flashSale';
 
 type ProductDetailProps = {
   product: Product;
@@ -16,45 +17,11 @@ type ProductDetailProps = {
 
 const RUBYOUNG_SPIN_HANDLES = ['rubyoung-spin'];
 
-// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
-// Must stay in sync with the same window in Hero.tsx and the caps in
-// flash-sale-webhook.js — all three should always agree on this timing.
-const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
-const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
-
-// TODO: replace with the real product handles — the part of the URL after
-// /products/ on the live site (e.g. ostsome.com/products/THIS-PART).
-// These are hardcoded rather than fetched live because the automatic
-// discount only affects checkout/cart totals, not the PDP price by
-// default — this shows customers the real checkout price up front instead
-// of them only seeing it once they add to cart.
-const FLASH_SALE_PRICES: Record<string, number> = {
-  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
-  "kospet-tank-t4-smartwatch-black-silver": 199.0,
-};
-
-function useFlashSaleActive() {
-  const inWindow = () => {
-    const now = Date.now();
-    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
-  };
-  const [isActive, setIsActive] = useState(inWindow);
-
-  useEffect(() => {
-    const tick = () => setIsActive(inWindow());
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return isActive;
-}
-
 export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProps) {
   const { user } = useAuth();
   const isFostMember = Boolean(user);
   const flashSaleActive = useFlashSaleActive();
-  const flashSalePrice = FLASH_SALE_PRICES[product.handle];
+  const flashSalePrice = getFlashPrice(product.handle);
   const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
   const [activeImg, setActiveImg] = useState(0);
   const [qty, setQty] = useState(1);
