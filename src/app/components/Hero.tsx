@@ -7,7 +7,7 @@ import banner2 from "../../imports/3-1.png";
 import banner3 from "../../imports/5.png";
 import banner4 from "../../imports/4-1.png";
 // TODO: replace with your actual exported 1800x600 flash sale banner filename
-import flashSaleBanner from "../../imports/flash-sale-1.png";
+import flashSaleBanner from "../../imports/Friday Flash Deal.png";
 import { FLASH_SALE_START, FLASH_SALE_END } from "../data/flashSale";
 
 const banners = [flashSaleBanner, heroBanner, banner1, banner2, banner3, banner4];
