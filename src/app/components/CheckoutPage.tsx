@@ -1,7 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Check, ShoppingBag, CreditCard, MapPin, Package, X, Lock, Tag } from 'lucide-react';
 import { useCart } from './CartContext';
 import { getFostPrice } from '../data/pricing';
+
+// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
+// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
+// ProductCard.tsx, WhatsNewThisWeek.tsx, CartDrawer.tsx, CartContext.tsx,
+// and the caps in flash-sale-webhook.js.
+const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
+const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+
+// TODO: must match the same handles used in the other flash-sale files.
+const FLASH_SALE_PRICES: Record<string, number> = {
+  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch-black-silver": 199.0,
+};
+
+function useFlashSaleActive() {
+  const inWindow = () => {
+    const now = Date.now();
+    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
+  };
+  const [isActive, setIsActive] = useState(inWindow);
+
+  useEffect(() => {
+    const tick = () => setIsActive(inWindow());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return isActive;
+}
 
 type CheckoutProps = {
   onBack: () => void;
@@ -72,6 +102,10 @@ function StepIndicator({ current }: { current: Step }) {
 
 function OrderSummary({ compact = false }: { compact?: boolean }) {
   const { items, subtotal, isFostMember, fostSubtotal, fostSavings } = useCart();
+  const flashSaleActive = useFlashSaleActive();
+  const hasFlashItems = isFostMember && flashSaleActive && items.some(
+    i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+  );
   const freeShipping = fostSubtotal >= 150;
   const shipping = freeShipping ? 0 : 8.90;
   const total = fostSubtotal + shipping;
@@ -90,7 +124,10 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
       {open && (
         <div className="px-5 pb-5">
           <div className="flex flex-col gap-3 mb-4 max-h-64 overflow-y-auto">
-            {items.map((item, i) => (
+            {items.map((item, i) => {
+              const flashPrice = FLASH_SALE_PRICES[item.product.handle];
+              const showFlashPrice = isFostMember && flashSaleActive && flashPrice !== undefined;
+              return (
               <div key={i} className="flex gap-3 items-start">
                 <div className="relative shrink-0">
                   <div className="w-14 h-14 rounded-xl bg-white border border-neutral-100 overflow-hidden">
@@ -111,7 +148,12 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
                     <p className="text-[10px] text-neutral-400 mt-0.5">{item.selectedOption1}{item.selectedOption2 ? ` / ${item.selectedOption2}` : ''}</p>
                   )}
                 </div>
-                {isFostMember ? (
+                {showFlashPrice ? (
+                  <div className="flex flex-col items-end shrink-0">
+                    <span className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">SGD {(flashPrice! * item.qty).toFixed(2)}</span>
+                    <span className="text-[10px] text-neutral-400 line-through">SGD {(item.variantPrice * item.qty).toFixed(2)}</span>
+                  </div>
+                ) : isFostMember ? (
                   <div className="flex flex-col items-end shrink-0">
                     <span className="text-xs font-bold text-[#F16C10]">SGD {(getFostPrice(item.variantPrice) * item.qty).toFixed(2)}</span>
                     <span className="text-[10px] text-neutral-400 line-through">SGD {(item.variantPrice * item.qty).toFixed(2)}</span>
@@ -120,7 +162,8 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
                   <span className="text-xs font-bold text-black shrink-0">SGD {(item.variantPrice * item.qty).toFixed(2)}</span>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="border-t border-neutral-200 pt-3 flex flex-col gap-2">
@@ -130,7 +173,7 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
             </div>
             {isFostMember && (
               <div className="flex justify-between text-sm text-[#F16C10] font-semibold">
-                <span>FOST member savings (5%)</span><span>– SGD {fostSavings.toFixed(2)}</span>
+                <span>{hasFlashItems ? 'Flash Deal savings' : 'FOST member savings (5%)'}</span><span>– SGD {fostSavings.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm text-neutral-500">
@@ -151,6 +194,10 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
 
 function ReviewStep({ onNext }: { onNext: () => void }) {
   const { items, removeItem, updateQty, subtotal, isFostMember, fostSubtotal, fostSavings, clearCart } = useCart();
+  const flashSaleActive = useFlashSaleActive();
+  const hasFlashItems = isFostMember && flashSaleActive && items.some(
+    i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+  );
   const freeShipping = fostSubtotal >= 150;
   const shipping = freeShipping ? 0 : 8.90;
   const total = fostSubtotal + shipping;
@@ -170,7 +217,10 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
       {/* Left: items */}
       <div>
         <div className="flex flex-col gap-4">
-          {items.map((item, idx) => (
+          {items.map((item, idx) => {
+            const flashPrice = FLASH_SALE_PRICES[item.product.handle];
+            const showFlashPrice = isFostMember && flashSaleActive && flashPrice !== undefined;
+            return (
             <div key={idx} className="flex gap-4 p-4 rounded-2xl border border-neutral-100 bg-white hover:border-neutral-200 transition">
               <div className="w-20 h-20 shrink-0 rounded-xl bg-neutral-50 overflow-hidden border border-neutral-100">
                 <img
@@ -197,7 +247,12 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
                     </button>
                   </div>
                   <div className="flex items-center gap-3">
-                    {isFostMember ? (
+                    {showFlashPrice ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">SGD {(flashPrice! * item.qty).toFixed(2)}</span>
+                        <span className="text-[10px] text-neutral-400 line-through">SGD {(item.variantPrice * item.qty).toFixed(2)}</span>
+                      </div>
+                    ) : isFostMember ? (
                       <div className="flex flex-col items-end">
                         <span className="text-sm font-bold text-[#F16C10]">SGD {(getFostPrice(item.variantPrice) * item.qty).toFixed(2)}</span>
                         <span className="text-[10px] text-neutral-400 line-through">SGD {(item.variantPrice * item.qty).toFixed(2)}</span>
@@ -212,7 +267,8 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Coupon */}
@@ -244,7 +300,7 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
             </div>
             {isFostMember && (
               <div className="flex justify-between text-[#F16C10] font-semibold">
-                <span>FOST member savings (5%)</span><span>– SGD {fostSavings.toFixed(2)}</span>
+                <span>{hasFlashItems ? 'Flash Deal savings' : 'FOST member savings (5%)'}</span><span>– SGD {fostSavings.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-neutral-500">

@@ -4,6 +4,24 @@ import { createCart, addToCart, removeFromCart, updateCartLine, getCart } from '
 import { useAuth } from './AuthContext';
 import { FOST_DISCOUNT_CODE, getFostPrice } from '../data/pricing';
 
+// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
+// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
+// ProductCard.tsx, WhatsNewThisWeek.tsx, CartDrawer.tsx, and the caps in
+// flash-sale-webhook.js.
+const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
+const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+
+// TODO: must match the same handles used in the other flash-sale files.
+const FLASH_SALE_PRICES: Record<string, number> = {
+  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch-black-silver": 199.0,
+};
+
+function isFlashSaleActive(): boolean {
+  const now = Date.now();
+  return now >= FLASH_SALE_START && now < FLASH_SALE_END;
+}
+
 export type CartItem = {
   product: Product;
   qty: number;
@@ -164,6 +182,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setCheckoutLoading(true);
     try {
+      // If the cart contains a flash-sale item during the active window, we
+      // deliberately do NOT pass the FOST5 code. Both FOST5 and the Friday
+      // Flash Deal automatic discount have "combine with other product
+      // discounts" turned off in Shopify Admin — that's what stops them
+      // stacking on the SAME item. But if FOST5 is already applied to the
+      // cart as a code, Shopify may not swap it out for the larger
+      // automatic discount, since neither is allowed to combine. Skipping
+      // the code here gives the automatic (bigger) discount room to apply.
+      // Trade-off: any OTHER non-flash items in the same cart temporarily
+      // lose their 5% FOST discount too, for the duration of this one
+      // checkout — acceptable for a 1-hour window, but worth knowing.
+      const cartHasFlashItem = items.some(
+        i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+      );
+      const skipFostCode = isFlashSaleActive() && cartHasFlashItem;
+
       // Create a Shopify cart with the first item. For FOST members, pass the
       // FOST5 discount code so the 5% off is applied on Shopify's side too —
       // this keeps what's shown on-site and what's actually charged in sync.
@@ -173,7 +207,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Shopify account (see comment on createCart) — this is what makes
       // "My Orders" and status tracking work for logged-in FOST members.
       let cart = await createCart(
-        isFostMember ? [FOST_DISCOUNT_CODE] : undefined,
+        isFostMember && !skipFostCode ? [FOST_DISCOUNT_CODE] : undefined,
         shopifyToken ?? undefined
       );
 
@@ -204,8 +238,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const totalItems = items.reduce((sum, i) => sum + i.qty, 0);
   const subtotal = items.reduce((sum, i) => sum + i.variantPrice * i.qty, 0);
+  const flashActiveNow = isFlashSaleActive();
+  const effectivePrice = (i: CartItem) => {
+    const flashPrice = FLASH_SALE_PRICES[i.product.handle];
+    if (isFostMember && flashActiveNow && flashPrice !== undefined) return flashPrice;
+    return isFostMember ? getFostPrice(i.variantPrice) : i.variantPrice;
+  };
   const fostSubtotal = isFostMember
-    ? items.reduce((sum, i) => sum + getFostPrice(i.variantPrice) * i.qty, 0)
+    ? items.reduce((sum, i) => sum + effectivePrice(i) * i.qty, 0)
     : subtotal;
   const fostSavings = subtotal - fostSubtotal;
 

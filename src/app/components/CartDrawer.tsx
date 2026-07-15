@@ -1,12 +1,43 @@
+import { useState, useEffect } from 'react';
 import { X, ShoppingBag, Minus, Plus, Trash2, ArrowRight, Loader2 } from 'lucide-react';
 import { useCart } from './CartContext';
 import { getFostPrice } from '../data/pricing';
+
+// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
+// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
+// ProductCard.tsx, WhatsNewThisWeek.tsx, and the caps in flash-sale-webhook.js.
+const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
+const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+
+// TODO: must match the same handles used in the other flash-sale files.
+const FLASH_SALE_PRICES: Record<string, number> = {
+  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch-black-silver": 199.0,
+};
+
+function useFlashSaleActive() {
+  const inWindow = () => {
+    const now = Date.now();
+    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
+  };
+  const [isActive, setIsActive] = useState(inWindow);
+
+  useEffect(() => {
+    const tick = () => setIsActive(inWindow());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return isActive;
+}
 
 export function CartDrawer() {
   const {
     items, removeItem, updateQty, subtotal, totalItems, isOpen, closeCart,
     goToShopifyCheckout, checkoutLoading, isFostMember, fostSubtotal, fostSavings,
   } = useCart();
+  const flashSaleActive = useFlashSaleActive();
 
   const shippingThreshold = 150;
   const freeShipping = fostSubtotal >= shippingThreshold;
@@ -130,20 +161,36 @@ export function CartDrawer() {
                         </button>
                       </div>
                       <div className="flex items-center gap-3">
-                        {isFostMember ? (
-                          <div className="flex flex-col items-end">
-                            <span className="text-sm font-bold text-[#F16C10]">
-                              SGD {(getFostPrice(item.variantPrice) * item.qty).toFixed(2)}
-                            </span>
-                            <span className="text-[10px] text-neutral-400 line-through">
+                        {(() => {
+                          const flashSalePrice = FLASH_SALE_PRICES[item.product.handle];
+                          const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
+                          if (showFlashPrice) {
+                            return (
+                              <div className="flex flex-col items-end">
+                                <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">
+                                  SGD {(flashSalePrice * item.qty).toFixed(2)}
+                                </span>
+                                <span className="text-[10px] text-neutral-400 line-through">
+                                  SGD {(item.variantPrice * item.qty).toFixed(2)}
+                                </span>
+                              </div>
+                            );
+                          }
+                          return isFostMember ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-bold text-[#F16C10]">
+                                SGD {(getFostPrice(item.variantPrice) * item.qty).toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 line-through">
+                                SGD {(item.variantPrice * item.qty).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm font-bold text-black">
                               SGD {(item.variantPrice * item.qty).toFixed(2)}
                             </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm font-bold text-black">
-                            SGD {(item.variantPrice * item.qty).toFixed(2)}
-                          </span>
-                        )}
+                          );
+                        })()}
                         <button onClick={() => removeItem(idx)} className="text-neutral-300 hover:text-red-400 transition">
                           <Trash2 size={14} />
                         </button>

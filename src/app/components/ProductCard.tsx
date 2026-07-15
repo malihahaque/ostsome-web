@@ -17,8 +17,8 @@ const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
 
 // TODO: must match the same handles used in ProductDetail.tsx exactly.
 const FLASH_SALE_PRICES: Record<string, number> = {
-  "skullcandy-aviator-900-anc-wireless-over-ear": 269.0,
-  "kospet-tank-t4-smartwatch": 199.0,
+  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch-black-silver": 199.0,
 };
 
 function useFlashSaleActive() {

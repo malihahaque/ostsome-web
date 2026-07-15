@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { TrendingUp, Star, Sparkles, Zap } from 'lucide-react';
 import { useProducts } from '../hooks/useProducts';
 import type { Product } from '../data/products';
@@ -8,6 +9,35 @@ import obsbotImg from '../../imports/obsbottiny.png';
 import skullcandyImg from '../../imports/image-9.png';
 import polaroidImg from '../../imports/image-10.png';
 import kospetImg from '../../imports/image-11.png';
+
+// Flash sale window: 17 July 2026, 7:00–8:00 PM Singapore Time (UTC+8).
+// Must stay in sync with the same window in Hero.tsx, ProductDetail.tsx,
+// ProductCard.tsx, and the caps in flash-sale-webhook.js.
+const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
+const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+
+// TODO: must match the same handles used in ProductDetail.tsx / ProductCard.tsx.
+const FLASH_SALE_PRICES: Record<string, number> = {
+  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
+  "kospet-tank-t4-smartwatch-black-silver": 199.0,
+};
+
+function useFlashSaleActive() {
+  const inWindow = () => {
+    const now = Date.now();
+    return now >= FLASH_SALE_START && now < FLASH_SALE_END;
+  };
+  const [isActive, setIsActive] = useState(inWindow);
+
+  useEffect(() => {
+    const tick = () => setIsActive(inWindow());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return isActive;
+}
 
 const featured = [
   { handle: 'pre-order-kandao-qoocam-3-ultra-360-action-camera', label: "Staff Pick", labelIcon: Star, labelColor: 'bg-amber-500' },
@@ -23,6 +53,7 @@ export function WhatsNewThisWeek({ onShopAll, onSelectProduct }: { onShopAll?: (
   const { products } = useProducts();
   const { user } = useAuth();
   const isFostMember = Boolean(user);
+  const flashSaleActive = useFlashSaleActive();
 
   const featuredProducts: FeaturedProduct[] = featured
     .map(({ handle, label, labelIcon, labelColor }) => {
@@ -107,14 +138,26 @@ export function WhatsNewThisWeek({ onShopAll, onSelectProduct }: { onShopAll?: (
                   <p className="text-[9px] md:text-[10px] font-semibold text-[#F16C10] uppercase tracking-widest mb-1">{product.vendor}</p>
                   <h3 className="text-sm md:text-base font-bold text-black mb-2 md:mb-3 line-clamp-1">{product.title}</h3>
                   <div className="flex items-center justify-between">
-                    {isFostMember ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base md:text-xl font-bold text-[#F16C10]">SGD {getFostPrice(product.price).toFixed(2)}</span>
-                        <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-base md:text-xl font-bold text-black">SGD {product.price.toFixed(2)}</span>
-                    )}
+                    {(() => {
+                      const flashSalePrice = FLASH_SALE_PRICES[product.handle];
+                      const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
+                      if (showFlashPrice) {
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base md:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">SGD {flashSalePrice.toFixed(2)}</span>
+                            <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
+                          </div>
+                        );
+                      }
+                      return isFostMember ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base md:text-xl font-bold text-[#F16C10]">SGD {getFostPrice(product.price).toFixed(2)}</span>
+                          <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-base md:text-xl font-bold text-black">SGD {product.price.toFixed(2)}</span>
+                      );
+                    })()}
                     <button className="text-[#F16C10] hover:text-black font-medium text-xs md:text-sm transition-colors">View →</button>
                   </div>
                 </div>
@@ -153,14 +196,26 @@ export function WhatsNewThisWeek({ onShopAll, onSelectProduct }: { onShopAll?: (
                     <p className="text-[9px] md:text-[10px] font-semibold text-[#F16C10] uppercase tracking-widest mb-1">{product.vendor}</p>
                     <h3 className="text-sm md:text-base font-bold text-black mb-2 line-clamp-2">{product.title}</h3>
                     <div className="flex items-center justify-between">
-                      {isFostMember ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base md:text-xl font-bold text-[#F16C10]">SGD {getFostPrice(product.price).toFixed(2)}</span>
-                          <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
-                        </div>
-                      ) : (
-                        <span className="text-base md:text-xl font-bold text-black">SGD {product.price.toFixed(2)}</span>
-                      )}
+                      {(() => {
+                        const flashSalePrice = FLASH_SALE_PRICES[product.handle];
+                        const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
+                        if (showFlashPrice) {
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-base md:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">SGD {flashSalePrice.toFixed(2)}</span>
+                              <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
+                            </div>
+                          );
+                        }
+                        return isFostMember ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base md:text-xl font-bold text-[#F16C10]">SGD {getFostPrice(product.price).toFixed(2)}</span>
+                            <span className="text-[9px] md:text-[10px] text-neutral-400 line-through">SGD {product.price.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-base md:text-xl font-bold text-black">SGD {product.price.toFixed(2)}</span>
+                        );
+                      })()}
                       <button className="text-[#F16C10] hover:text-black font-medium text-xs md:text-sm transition-colors">View →</button>
                     </div>
                   </div>
