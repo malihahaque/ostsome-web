@@ -20,37 +20,6 @@ type AccountPageProps = {
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 
-const MOCK_ORDERS = [
-  {
-    id: 'OST-A3F9K2',
-    date: '8 Jun 2026',
-    status: 'Delivered',
-    total: 639.00,
-    items: [
-      { title: 'Hohem iSteady MT3 Pro Kit', vendor: 'Hohem', qty: 1, price: 639.00, image: 'https://cdn.shopify.com/s/files/1/0348/4948/9034/files/MT3Pro_6851fbef-3a4a-4731-a005-d6a68f292946.jpg?v=1780906764' },
-    ],
-  },
-  {
-    id: 'OST-B7D2M1',
-    date: '1 Jun 2026',
-    status: 'Shipped',
-    total: 367.90,
-    items: [
-      { title: 'Turtle Beach Stealth 700 Gaming Headset', vendor: 'Turtle Beach', qty: 1, price: 299.90, image: 'https://cdn.shopify.com/s/files/1/0348/4948/9034/files/Stealth700.jpg?v=1780900598' },
-      { title: 'KOSPET TANK M4 Smartwatch', vendor: 'Kospet', qty: 1, price: 298.00, image: 'https://cdn.shopify.com/s/files/1/0348/4948/9034/files/TankM4.jpg?v=1780900598' },
-    ],
-  },
-  {
-    id: 'OST-C1X8P4',
-    date: '18 May 2026',
-    status: 'Delivered',
-    total: 469.00,
-    items: [
-      { title: 'Hohem iSteady MT3', vendor: 'Hohem', qty: 1, price: 469.00, image: 'https://cdn.shopify.com/s/files/1/0348/4948/9034/files/1217.png?v=1780900598' },
-    ],
-  },
-];
-
 const MOCK_SAVED = [
   {
     handle: 'hohem-isteady-mt3-pro-and-mt3-pro-kit',
@@ -106,16 +75,30 @@ const STATUS_ICONS: Record<string, typeof Truck> = {
 
 // ─── MY ORDERS ────────────────────────────────────────────────────────────────
 function MyOrders() {
-  const { shopifyToken } = useAuth();
+  const { shopifyToken, logout } = useAuth();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'expired' | 'error'>('loading');
 
   useEffect(() => {
-    if (!shopifyToken) { setLoading(false); return; }
+    if (!shopifyToken) {
+      // No token at all — same practical situation as an expired one: we
+      // can't prove who this customer is, so we can't show order history.
+      setStatus('expired');
+      return;
+    }
     getCustomer(shopifyToken)
       .then(customer => {
-        const raw = customer?.orders?.edges?.map((e: any) => {
+        // Shopify's Storefront API doesn't throw for an invalid/expired
+        // access token — it just resolves with customer: null. Catching
+        // that here is what lets us tell "your session expired" apart
+        // from "you genuinely have zero orders" instead of both silently
+        // rendering the same empty state.
+        if (!customer) {
+          setStatus('expired');
+          return;
+        }
+        const raw = customer.orders?.edges?.map((e: any) => {
           const o = e.node;
           return {
             id: o.name,
@@ -135,16 +118,61 @@ function MyOrders() {
           };
         }) ?? [];
         setOrders(raw);
+        setStatus('loaded');
       })
-      .catch(() => setOrders(MOCK_ORDERS))
-      .finally(() => setLoading(false));
+      // A genuine network/API failure — not the same as an expired token,
+      // and customers should never see fake demo orders that aren't
+      // theirs, so this now shows an honest retry state instead.
+      .catch(() => setStatus('error'));
   }, [shopifyToken]);
 
-  if (loading) return (
+  function handleReLogin() {
+    // Clears the stale token/user so the app's normal logged-out flow
+    // (login modal/page) takes over from here.
+    logout();
+  }
+
+  if (status === 'loading') return (
     <div className="flex justify-center py-16">
       <div className="w-8 h-8 border-4 border-[#F16C10] border-t-transparent rounded-full animate-spin" />
     </div>
   );
+
+  if (status === 'expired') {
+    return (
+      <div className="flex flex-col items-center py-20 gap-4 text-center">
+        <Lock size={48} className="text-neutral-200" />
+        <div>
+          <p className="text-base font-semibold text-black mb-1">Your session has expired</p>
+          <p className="text-sm text-neutral-400 max-w-xs">Log in again to see your order history.</p>
+        </div>
+        <button
+          onClick={handleReLogin}
+          className="bg-[#F16C10] hover:bg-[#d65f0e] text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+        >
+          Log In Again
+        </button>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex flex-col items-center py-20 gap-4 text-center">
+        <Package size={48} className="text-neutral-200" />
+        <div>
+          <p className="text-base font-semibold text-black mb-1">Couldn't load your orders</p>
+          <p className="text-sm text-neutral-400 max-w-xs">Something went wrong on our end. Please try again.</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="border border-neutral-200 text-sm font-semibold text-black px-5 py-2.5 rounded-xl hover:bg-neutral-50 transition"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   if (orders.length === 0) {
     return (
