@@ -319,6 +319,8 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     'skullcandy-crusher-anc-2-wireless-headphones': { videoId: 'uOqvYKwIeP4', title: 'Skullcandy Crusher ANC 2 video' },
     'pre-order-larq-bottle-purevis-2-self-cleaning-1000ml': { videoId: 'Lmi5XBA-PhA', title: 'LARQ Bottle PureVis 2 video' },
     'arzopa-d10-10-1-digital-photo-frame': { videoId: '_Hbar0aUjis', title: 'Arzopa D10 video' },
+    'kospet-tank-t4-smartwatch-black-silver': { videoId: 'bQnmql1c3W0', title: 'KOSPET Tank T4 video' },
+    'skullcandy-aivator-900-anc-wireless-over-ear': { videoId: 'kV191TVHsJo', title: 'Skullcandy Aviator 900 ANC video' },
   };
   const productVideo = PRODUCT_VIDEOS[product.handle];
 
