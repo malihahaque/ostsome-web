@@ -17,15 +17,15 @@
 
 import { useState, useEffect } from "react";
 
-export const FLASH_SALE_START = new Date("2026-07-17T19:00:00+08:00").getTime();
-export const FLASH_SALE_END = new Date("2026-07-17T20:00:00+08:00").getTime();
+export const FLASH_SALE_START = new Date("2026-07-24T18:00:00+08:00").getTime();
+export const FLASH_SALE_END = new Date("2026-07-24T19:00:00+08:00").getTime();
 
 // Product handle -> flash sale price. Handles are the part of the URL
 // after /products/ on the live site — copy them exactly, a typo here
 // means the deal silently never shows for that product.
 export const FLASH_SALE_PRICES: Record<string, number> = {
-  "skullcandy-aivator-900-anc-wireless-over-ear": 269.0,
-  "kospet-tank-t4-smartwatch-black-silver": 199.0,
+  "looki-l1": 289.0,
+  "hohem-isteady-mt3-pro-and-mt3-pro-kit": 649.0,
 };
 
 export function isFlashSaleActiveNow(): boolean {

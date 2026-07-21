@@ -90,17 +90,25 @@ function FlashSaleCountdown() {
           className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 tracking-wide animate-pulse"
           style={{ fontSize: "clamp(0.9rem, 2.4vw, 2.1rem)" }}
         >
-          SALE LIVE
+          DEAL LIVE
         </span>
       )}
 
       {state === "ended" && (
-        <span
-          className="font-extrabold text-white/90 tracking-wide text-center"
-          style={{ fontSize: "clamp(0.55rem, 1.3vw, 1.15rem)" }}
-        >
-          NEW DEALS COMING SOON
-        </span>
+        <div className="flex flex-col items-center justify-center text-center leading-tight">
+          <span
+            className="font-extrabold text-white/90 tracking-wide"
+            style={{ fontSize: "clamp(0.5rem, 1.15vw, 1rem)" }}
+          >
+            THANK YOU FOR PARTICIPATING
+          </span>
+          <span
+            className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 tracking-wide"
+            style={{ fontSize: "clamp(0.45rem, 1vw, 0.9rem)" }}
+          >
+            MORE DEALS COMING SOON
+          </span>
+        </div>
       )}
 
       {state === "countdown" && (
