@@ -83,15 +83,15 @@ function FlashSaleCountdown() {
 
   const boxStyle = {
     left: "50%",
-    top: "74%",
-    width: "34%",
+    top: "70%",
+    width: "24%",
     height: "9%",
     transform: "translateX(-50%)",
   };
 
   return (
     <div
-      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-[#D4537E]/40 bg-white/95 shadow-sm px-[3%]"
+      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-[#D4537E]/40 bg-white/95 shadow-sm px-[1.5%]"
       style={boxStyle}
     >
       {state === "live" && (
@@ -121,10 +121,10 @@ function FlashSaleCountdown() {
       )}
 
       {state === "countdown" && (
-        <div className="flex items-center justify-center gap-[3%] w-full h-full">
+        <div className="flex items-center justify-center gap-[2%] w-full h-full">
           <Clock
             className="text-[#D4537E] shrink-0"
-            style={{ width: "14%", height: "45%" }}
+            style={{ width: "12%", height: "42%" }}
           />
           <div className="w-px h-2/3 bg-[#D4537E]/30" />
           <CountdownUnit value={days} label="DAYS" />
