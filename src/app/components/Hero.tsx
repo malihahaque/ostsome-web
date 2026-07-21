@@ -54,7 +54,7 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
         {value}
       </span>
       <span
-        className="text-white/80 tracking-wide"
+        className="text-gray-500 tracking-wide"
         style={{ fontSize: "clamp(0.35rem, 0.65vw, 0.65rem)" }}
       >
         {label}
@@ -70,19 +70,28 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
 // NOTE: "bg-[#0a0e1a]" is an estimate of the banner's dark navy background.
 // Use the color picker on the real exported PNG and swap in the exact hex so
 // the badge blends in seamlessly rather than showing as a visible box.
+// Badge position/size is tuned against the 1800x600 "Your shot at Looki L1
+// and Hohem MT3 Pro" banner, sitting in the gap between the "FOST members
+// unlock it..." subtext and the "BECOME A FOST MEMBER" button — the same
+// spot marked "insert live countdown timer here" in the exported artwork.
+// Colors switched from the old dark-navy/pink-border pill to a light pill
+// that sits naturally on the new cream/light banner background, using the
+// same coral-to-orange gradient as the "$2XX" / "$6XX" lock tags so the
+// countdown reads as part of the same design system as the rest of the art.
 function FlashSaleCountdown() {
   const { state, days, hours, minutes } = useSaleState();
 
   const boxStyle = {
-    left: "38%",
-    top: "27%",
-    width: "25%",
-    height: "12%",
+    left: "50%",
+    top: "74%",
+    width: "34%",
+    height: "9%",
+    transform: "translateX(-50%)",
   };
 
   return (
     <div
-      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-pink-500/70 bg-[#0a0e1a] px-[3%]"
+      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-[#D4537E]/40 bg-white/95 shadow-sm px-[3%]"
       style={boxStyle}
     >
       {state === "live" && (
@@ -97,7 +106,7 @@ function FlashSaleCountdown() {
       {state === "ended" && (
         <div className="flex flex-col items-center justify-center text-center leading-tight">
           <span
-            className="font-extrabold text-white/90 tracking-wide"
+            className="font-extrabold text-gray-800 tracking-wide"
             style={{ fontSize: "clamp(0.5rem, 1.15vw, 1rem)" }}
           >
             THANK YOU FOR PARTICIPATING
@@ -114,14 +123,14 @@ function FlashSaleCountdown() {
       {state === "countdown" && (
         <div className="flex items-center justify-center gap-[3%] w-full h-full">
           <Clock
-            className="text-pink-500 shrink-0"
+            className="text-[#D4537E] shrink-0"
             style={{ width: "14%", height: "45%" }}
           />
-          <div className="w-px h-2/3 bg-pink-500/40" />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
           <CountdownUnit value={days} label="DAYS" />
-          <div className="w-px h-2/3 bg-pink-500/40" />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
           <CountdownUnit value={hours} label="HOURS" />
-          <div className="w-px h-2/3 bg-pink-500/40" />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
           <CountdownUnit value={minutes} label="MINS" />
         </div>
       )}
