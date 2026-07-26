@@ -17,8 +17,8 @@
 
 import { useState, useEffect } from "react";
 
-export const FLASH_SALE_START = new Date("2026-07-24T18:00:00+08:00").getTime();
-export const FLASH_SALE_END = new Date("2026-07-24T19:00:00+08:00").getTime();
+export const FLASH_SALE_START = new Date("2026-07-31T18:00:00+08:00").getTime();
+export const FLASH_SALE_END = new Date("2026-07-31T19:00:00+08:00").getTime();
 
 // Product handle -> flash sale price. Handles are the part of the URL
 // after /products/ on the live site — copy them exactly, a typo here
