@@ -28,6 +28,16 @@ export const FLASH_SALE_PRICES: Record<string, number> = {
   "hohem-isteady-mt3-pro-and-mt3-pro-kit": 649.0,
 };
 
+// Some flash-sale products have multiple variants, but the deal only
+// applies to ONE of them (e.g. Hohem: the MT3 Pro Kit is on flash sale,
+// the base MT3 Pro is not). Map: product handle -> the exact option1Value
+// the flash price is scoped to. Omit a handle here if its flash price
+// should apply no matter which variant is selected (e.g. Looki L1, which
+// has no variants).
+export const FLASH_SALE_VARIANT_SCOPE: Record<string, string> = {
+  "hohem-isteady-mt3-pro-and-mt3-pro-kit": "MT3 Pro Kit",
+};
+
 export function isFlashSaleActiveNow(): boolean {
   const now = Date.now();
   return now >= FLASH_SALE_START && now < FLASH_SALE_END;

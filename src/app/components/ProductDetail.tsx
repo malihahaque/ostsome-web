@@ -7,7 +7,7 @@ import { useAuth } from './AuthContext';
 import { fetchProductByHandle } from '../data/shopify';
 import { getFostPrice } from '../data/pricing';
 import luckyDrawImg from '../../imports/rubyoung-lucky-draw.jpg';
-import { useFlashSaleActive, getFlashPrice } from '../data/flashSale';
+import { useFlashSaleActive, getFlashPrice, FLASH_SALE_VARIANT_SCOPE } from '../data/flashSale';
 
 type ProductDetailProps = {
   product: Product;
@@ -22,7 +22,6 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const isFostMember = Boolean(user);
   const flashSaleActive = useFlashSaleActive();
   const flashSalePrice = getFlashPrice(product.handle);
-  const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
   const [activeImg, setActiveImg] = useState(0);
   const [qty, setQty] = useState(1);
   const [selectedOption1, setSelectedOption1] = useState<string | null>(null);
@@ -30,6 +29,14 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const [addedToCart, setAddedToCart] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showLuckyDraw, setShowLuckyDraw] = useState(false);
+
+  // If this product's flash deal is scoped to one specific variant (e.g.
+  // Hohem's Kit, not the base MT3 Pro), only show the flash price once
+  // that exact variant is selected. Products with no scope entry (e.g.
+  // Looki L1) behave as before — the deal applies regardless of variant.
+  const requiredVariantForFlash = FLASH_SALE_VARIANT_SCOPE[product.handle];
+  const variantMatchesFlashScope = !requiredVariantForFlash || selectedOption1 === requiredVariantForFlash;
+  const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined && variantMatchesFlashScope;
 
   const { addItem, items: cartItems } = useCart();
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
