@@ -75,6 +75,18 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
   const variants = getVariants(product.handle);
 
+  // Default to the first listed variant option so the price shown reflects
+  // an actual variant right away, instead of falling back to the base
+  // product.price until the customer manually picks one.
+  useEffect(() => {
+    if (variants.length > 0 && selectedOption1 === null) {
+      setSelectedOption1(variants[0].option1Value);
+      if (variants[0].option2Value) {
+        setSelectedOption2(variants[0].option2Value);
+      }
+    }
+  }, [variants]);
+
   const hasDiscount = product.comparePrice && product.comparePrice > product.price;
   const discountPct = hasDiscount
     ? Math.round(((product.comparePrice! - product.price) / product.comparePrice!) * 100)
