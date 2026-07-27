@@ -61,3 +61,17 @@ export function useFlashSaleActive(): boolean {
 export function getFlashPrice(handle: string): number | undefined {
   return FLASH_SALE_PRICES[handle];
 }
+
+// Use this (not getFlashPrice directly) anywhere you're pricing an actual
+// cart/checkout line item, since a line item carries the variant the
+// customer actually chose. Returns undefined if this handle has no flash
+// deal, OR if the deal is scoped to a specific variant and the item's
+// variant doesn't match — e.g. a base "MT3 Pro" line item never gets the
+// Kit's flash price, even while the sale is running.
+export function getFlashPriceForItem(handle: string, selectedOption1?: string | null): number | undefined {
+  const price = FLASH_SALE_PRICES[handle];
+  if (price === undefined) return undefined;
+  const requiredVariant = FLASH_SALE_VARIANT_SCOPE[handle];
+  if (requiredVariant && selectedOption1 !== requiredVariant) return undefined;
+  return price;
+}

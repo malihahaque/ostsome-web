@@ -1,7 +1,7 @@
 import { X, ShoppingBag, Minus, Plus, Trash2, ArrowRight, Loader2 } from 'lucide-react';
 import { useCart } from './CartContext';
 import { getFostPrice } from '../data/pricing';
-import { useFlashSaleActive, getFlashPrice } from '../data/flashSale';
+import { useFlashSaleActive, getFlashPriceForItem } from '../data/flashSale';
 
 export function CartDrawer() {
   const {
@@ -133,7 +133,7 @@ export function CartDrawer() {
                       </div>
                       <div className="flex items-center gap-3">
                         {(() => {
-                          const flashSalePrice = getFlashPrice(item.product.handle);
+                          const flashSalePrice = getFlashPriceForItem(item.product.handle, item.selectedOption1);
                           const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
                           if (showFlashPrice) {
                             return (

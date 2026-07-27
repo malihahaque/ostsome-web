@@ -3,7 +3,7 @@ import { ShoppingCart, Eye } from 'lucide-react';
 import type { Product } from '../data/products';
 import { useAuth } from './AuthContext';
 import { getFostPrice } from '../data/pricing';
-import { useFlashSaleActive, getFlashPrice } from '../data/flashSale';
+import { useFlashSaleActive, getFlashPrice, FLASH_SALE_VARIANT_SCOPE } from '../data/flashSale';
 
 type ProductCardProps = {
   product: Product;
@@ -16,7 +16,13 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
   const isFostMember = Boolean(user);
   const flashSaleActive = useFlashSaleActive();
   const flashSalePrice = getFlashPrice(product.handle);
-  const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined;
+  // Deals scoped to one specific variant (e.g. Hohem's Kit) aren't shown
+  // here — the card displays product.price, which may be the base variant,
+  // so a flash badge/price here could show the wrong before/after numbers.
+  // The correct price shows once the customer opens the product page and
+  // selects the actual variant the deal applies to.
+  const isVariantScopedDeal = Boolean(FLASH_SALE_VARIANT_SCOPE[product.handle]);
+  const showFlashPrice = isFostMember && flashSaleActive && flashSalePrice !== undefined && !isVariantScopedDeal;
   const hasDiscount = product.comparePrice && product.comparePrice > product.price;
   const discountPct = hasDiscount
     ? Math.round(((product.comparePrice! - product.price) / product.comparePrice!) * 100)

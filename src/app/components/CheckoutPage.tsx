@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Check, ShoppingBag, CreditCard, MapPin, Package, X, Lock, Tag } from 'lucide-react';
 import { useCart } from './CartContext';
 import { getFostPrice } from '../data/pricing';
-import { useFlashSaleActive, getFlashPrice, FLASH_SALE_PRICES } from '../data/flashSale';
+import { useFlashSaleActive, getFlashPriceForItem } from '../data/flashSale';
 
 type CheckoutProps = {
   onBack: () => void;
@@ -75,7 +75,7 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
   const { items, subtotal, isFostMember, fostSubtotal, fostSavings } = useCart();
   const flashSaleActive = useFlashSaleActive();
   const hasFlashItems = isFostMember && flashSaleActive && items.some(
-    i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+    i => getFlashPriceForItem(i.product.handle, i.selectedOption1) !== undefined
   );
   const freeShipping = fostSubtotal >= 150;
   const shipping = freeShipping ? 0 : 8.90;
@@ -96,7 +96,7 @@ function OrderSummary({ compact = false }: { compact?: boolean }) {
         <div className="px-5 pb-5">
           <div className="flex flex-col gap-3 mb-4 max-h-64 overflow-y-auto">
             {items.map((item, i) => {
-              const flashPrice = FLASH_SALE_PRICES[item.product.handle];
+              const flashPrice = getFlashPriceForItem(item.product.handle, item.selectedOption1);
               const showFlashPrice = isFostMember && flashSaleActive && flashPrice !== undefined;
               return (
               <div key={i} className="flex gap-3 items-start">
@@ -167,7 +167,7 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
   const { items, removeItem, updateQty, subtotal, isFostMember, fostSubtotal, fostSavings, clearCart } = useCart();
   const flashSaleActive = useFlashSaleActive();
   const hasFlashItems = isFostMember && flashSaleActive && items.some(
-    i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+    i => getFlashPriceForItem(i.product.handle, i.selectedOption1) !== undefined
   );
   const freeShipping = fostSubtotal >= 150;
   const shipping = freeShipping ? 0 : 8.90;
@@ -189,7 +189,7 @@ function ReviewStep({ onNext }: { onNext: () => void }) {
       <div>
         <div className="flex flex-col gap-4">
           {items.map((item, idx) => {
-            const flashPrice = FLASH_SALE_PRICES[item.product.handle];
+            const flashPrice = getFlashPriceForItem(item.product.handle, item.selectedOption1);
             const showFlashPrice = isFostMember && flashSaleActive && flashPrice !== undefined;
             return (
             <div key={idx} className="flex gap-4 p-4 rounded-2xl border border-neutral-100 bg-white hover:border-neutral-200 transition">

@@ -3,7 +3,7 @@ import type { Product } from '../data/products';
 import { createCart, addToCart, removeFromCart, updateCartLine, getCart } from '../data/shopify';
 import { useAuth } from './AuthContext';
 import { FOST_DISCOUNT_CODE, getFostPrice } from '../data/pricing';
-import { isFlashSaleActiveNow, getFlashPrice, FLASH_SALE_PRICES } from '../data/flashSale';
+import { isFlashSaleActiveNow, getFlashPriceForItem } from '../data/flashSale';
 
 export type CartItem = {
   product: Product;
@@ -177,7 +177,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // lose their 5% FOST discount too, for the duration of this one
       // checkout — acceptable for a 1-hour window, but worth knowing.
       const cartHasFlashItem = items.some(
-        i => FLASH_SALE_PRICES[i.product.handle] !== undefined
+        i => getFlashPriceForItem(i.product.handle, i.selectedOption1) !== undefined
       );
       const skipFostCode = isFlashSaleActiveNow() && cartHasFlashItem;
 
@@ -223,7 +223,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const subtotal = items.reduce((sum, i) => sum + i.variantPrice * i.qty, 0);
   const flashActiveNow = isFlashSaleActiveNow();
   const effectivePrice = (i: CartItem) => {
-    const flashPrice = FLASH_SALE_PRICES[i.product.handle];
+    const flashPrice = getFlashPriceForItem(i.product.handle, i.selectedOption1);
     if (isFostMember && flashActiveNow && flashPrice !== undefined) return flashPrice;
     return isFostMember ? getFostPrice(i.variantPrice) : i.variantPrice;
   };

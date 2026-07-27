@@ -1,14 +1,21 @@
 // netlify/functions/flash-sale-webhook.js
 //
 // Listens for Shopify's `orders/paid` webhook. Whenever a paid order includes
-// one of the two flash-sale variants, it re-tallies total units sold since
+// one of the flash-sale variants, it re-tallies total units sold since
 // SALE_START directly from Shopify (no separate database — Shopify's order
-// history is the source of truth on every check). The Aviator and Tank T4
-// each have their OWN automatic discount (different fixed $ amounts, since
-// they're priced too differently for one shared discount to hit both exact
-// target prices) — so when one product hits its 5-unit cap, only THAT
-// product's discount gets deactivated; the other keeps running until it
-// hits its own cap or the sale window ends.
+// history is the source of truth on every check). Looki L1 and the Hohem
+// MT3 Pro Kit each have their OWN automatic discount (different fixed $
+// amounts, since they're priced too differently for one shared discount to
+// hit both exact target prices) — so when one product hits its 5-unit cap,
+// only THAT product's discount gets deactivated; the other keeps running
+// until it hits its own cap or the sale window ends.
+//
+// Same rule as the previous drop: first 5 units sold OR the 1-hour window
+// closing, whichever comes first. The cap-deactivation here handles the
+// "5 units" half; the 1-hour half is enforced by the automatic discount's
+// own active/end dates set in Shopify Admin, plus the frontend's
+// FLASH_SALE_END in flashSale.ts (which stops showing the deal once the
+// hour is up regardless of whether the cap was hit).
 
 const crypto = require("crypto");
 
@@ -27,21 +34,21 @@ const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 // exact target prices. discountTitle must exactly match the title of that
 // product's discount in Shopify Admin.
 const DEAL_VARIANTS = {
-  "gid://shopify/ProductVariant/48739508322442": {
-    name: "Aviator 900 ANC",
+  "gid://shopify/ProductVariant/TODO_LOOKI_L1": {
+    name: "Looki L1",
     cap: 5,
-    discountTitle: "Friday Flash Deal — Aviator 900 ANC",
+    discountTitle: "Friday Flash Deal — Looki L1",
   },
-  "gid://shopify/ProductVariant/49456571252874": {
-    name: "Tank T4 Black",
+  "gid://shopify/ProductVariant/TODO_HOHEM_MT3_PRO_KIT": {
+    name: "Hohem MT3 Pro Kit",
     cap: 5,
-    discountTitle: "Friday Flash Deal — Tank T4",
+    discountTitle: "Friday Flash Deal — Hohem MT3 Pro Kit",
   },
 };
 
 // Sale window start — used to scope the order query so we only count units
 // sold under this specific drop, not historical sales of the same products.
-const SALE_START = "2026-07-17T19:00:00+08:00";
+const SALE_START = "2026-07-31T18:00:00+08:00";
 
 function verifyWebhook(rawBody, hmacHeader) {
   if (!hmacHeader) return false;
