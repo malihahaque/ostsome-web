@@ -34,12 +34,12 @@ const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 // exact target prices. discountTitle must exactly match the title of that
 // product's discount in Shopify Admin.
 const DEAL_VARIANTS = {
-  "gid://shopify/ProductVariant/TODO_LOOKI_L1": {
-    name: "Looki L1",
+  "gid://shopify/ProductVariant/47901198155914": {
+    name: "Looki L1 (Black)",
     cap: 5,
     discountTitle: "Friday Flash Deal — Looki L1",
   },
-  "gid://shopify/ProductVariant/TODO_HOHEM_MT3_PRO_KIT": {
+  "gid://shopify/ProductVariant/49524758053002": {
     name: "Hohem MT3 Pro Kit",
     cap: 5,
     discountTitle: "Friday Flash Deal — Hohem MT3 Pro Kit",

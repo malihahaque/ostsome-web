@@ -36,6 +36,7 @@ export const FLASH_SALE_PRICES: Record<string, number> = {
 // has no variants).
 export const FLASH_SALE_VARIANT_SCOPE: Record<string, string> = {
   "hohem-isteady-mt3-pro-and-mt3-pro-kit": "MT3 Pro Kit",
+  "looki-l1": "Black",
 };
 
 export function isFlashSaleActiveNow(): boolean {
