@@ -17,9 +17,6 @@ const ALL_DEALS: DealConfig[] = [
   // BUTTONS — Black & Gold both $229, collapsed to one card
   { handle: 'buttons-clip',                         label: 'BUTTONS', name: 'BUTTONS Clip OWS Earphone',              srp: 285, promo: 229 },
 
-  // LOOKI — all colours $299, collapsed to one card
-  { handle: 'looki-l1',                             label: 'LOOKI',   name: 'Looki L1',                               srp: 349, promo: 299 },
-
   // LOONA
   { handle: 'loona-smart-pet-robot',                label: 'LOONA',   name: 'Petbot Premium (with Charging Dock)',     srp: 758, promo: 649 },
 

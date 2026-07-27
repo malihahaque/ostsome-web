@@ -14,7 +14,6 @@ interface DealConfig {
 
 const FEATURED_DEALS: DealConfig[] = [
   { handle: 'buttons-clip',                                    srp: 285, promo: 229, label: 'BUTTONS' },
-  { handle: 'looki-l1',                                        srp: 349, promo: 299, label: 'LOOKI'   },
   { handle: 'loona-smart-pet-robot',                           srp: 758, promo: 649, label: 'LOONA'   },
   { handle: 'kospet-tank-t4c-smartwatch',                      srp: 228, promo: 189, label: 'KOSPET'  }, // T4C = 17%, higher than T4's 16%
   { handle: 'arzopa-ar-a1-gamut-15-6-fhd-portable-monitor-ips-1920-1080p-freq-60hz-type-c-hdmi-w-smart-cover-copy', srp: 129, promo: 99, label: 'ARZOPA' }, // -23%, highest Arzopa
