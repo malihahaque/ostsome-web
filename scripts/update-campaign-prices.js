@@ -104,7 +104,7 @@ async function findVariantBySku(sku) {
             sku
             price
             compareAtPrice
-            product { title handle }
+            product { id title handle }
           }
         }
       }
@@ -114,19 +114,26 @@ async function findVariantBySku(sku) {
   return data.productVariants.edges[0]?.node ?? null;
 }
 
-async function updateVariantPrice(variantId, price, compareAtPrice) {
+async function updateVariantPrice(productId, variantId, price, compareAtPrice) {
+  // productVariantUpdate was deprecated by Shopify — this store's API
+  // version (2024-10) no longer has it, confirmed by the "Field
+  // 'productVariantUpdate' doesn't exist on type 'Mutation'" error from
+  // the first live run. productVariantsBulkUpdate is the replacement; it
+  // takes the parent product's ID plus an array of variant changes (one
+  // entry is fine for a single-variant update).
   const mutation = `
-    mutation UpdateVariant($input: ProductVariantInput!) {
-      productVariantUpdate(input: $input) {
-        productVariant { id price compareAtPrice }
+    mutation UpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+        productVariants { id price compareAtPrice }
         userErrors { field message }
       }
     }
   `;
   const data = await shopifyGraphQL(mutation, {
-    input: { id: variantId, price, compareAtPrice },
+    productId,
+    variants: [{ id: variantId, price, compareAtPrice }],
   });
-  return data.productVariantUpdate;
+  return data.productVariantsBulkUpdate;
 }
 
 function sleep(ms) {
@@ -169,7 +176,7 @@ async function main() {
     }
 
     try {
-      const result = await updateVariantPrice(variant.id, deal.price, deal.compareAtPrice);
+      const result = await updateVariantPrice(variant.product.id, variant.id, deal.price, deal.compareAtPrice);
       if (result.userErrors.length > 0) {
         console.log(`     ⚠️  FAILED: ${JSON.stringify(result.userErrors)}`);
         failed.push({ sku: deal.sku, errors: result.userErrors });
