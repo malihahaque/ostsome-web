@@ -10,6 +10,32 @@ import luckyDrawImg from '../../imports/rubyoung-lucky-draw.jpg';
 import { useFlashSaleActive, getFlashPrice, FLASH_SALE_VARIANT_SCOPE } from '../data/flashSale';
 import { getCampaignDeal } from '../data/campaignDeals';
 
+// Builds a variant lookup key from (optionName, optionValue) pairs, always
+// sorted by NAME rather than by whatever order the values happen to arrive
+// in. This matters because two different code paths build variant keys
+// independently: the live Shopify fetch below joins values in whatever
+// order Shopify's API returns selectedOptions (which follows how that
+// product's options are configured in Shopify Admin), while the
+// add-to-cart handlers previously just joined [selectedOption1,
+// selectedOption2] positionally. If a product's Shopify option order ever
+// didn't match the static productVariants.ts option1/option2 order — which
+// happened for at least one Edizard product, likely from a past variant
+// duplication — the two keys came out different strings for the exact same
+// variant, the lookup silently failed, and the item got added to cart with
+// no shopifyVariantId at all ("Variant not linked to Shopify"). Sorting by
+// name on both sides makes the two always agree regardless of Shopify's
+// configured option order, for every product, not just the one that
+// happened to get caught.
+function buildVariantKey(pairs: (readonly [string | null | undefined, string | null | undefined])[]): string {
+  const valid = pairs.filter((p): p is [string, string] => Boolean(p[0]) && Boolean(p[1]));
+  if (valid.length === 0) return 'default';
+  return valid
+    .slice()
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([, value]) => value)
+    .join('/');
+}
+
 type ProductDetailProps = {
   product: Product;
   onBack: () => void;
@@ -68,10 +94,10 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       const availMap: Record<string, boolean> = {};
       const qtyMap: Record<string, number | null> = {};
       sp.variants.edges.forEach(({ node }) => {
-        const optionValues = node.selectedOptions
+        const pairs = node.selectedOptions
           .filter(o => o.name !== 'Title' && o.value !== 'Default Title')
-          .map(o => o.value);
-        const key = optionValues.length > 0 ? optionValues.join('/') : 'default';
+          .map(o => [o.name, o.value] as const);
+        const key = buildVariantKey(pairs);
         idMap[key] = node.id;
         availMap[key] = node.availableForSale;
         qtyMap[key] = node.quantityAvailable ?? null;
@@ -148,7 +174,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
     const matching = variants.filter(v => v.option1Value === val);
     return matching.some(v => {
-      const key = [v.option1Value, v.option2Value].filter(Boolean).join('/');
+      const key = buildVariantKey([[option1Name, v.option1Value], [option2Name, v.option2Value]]);
       return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
     });
   }
@@ -159,7 +185,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       (!selectedOption1 || v.option1Value === selectedOption1) && v.option2Value === val
     );
     return matching.some(v => {
-      const key = [v.option1Value, v.option2Value].filter(Boolean).join('/');
+      const key = buildVariantKey([[option1Name, v.option1Value], [option2Name, v.option2Value]]);
       return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
     });
   }
@@ -168,9 +194,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   // gates the Add to Cart / Buy Now buttons.
   const selectedVariantAvailable = useMemo(() => {
     if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
-    const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+    const key = buildVariantKey([[option1Name, selectedOption1], [option2Name, selectedOption2]]);
     return shopifyAvailability[key] ?? shopifyAvailability['default'] ?? true;
-  }, [selectedOption1, selectedOption2, shopifyAvailability, variantsLoaded]);
+  }, [selectedOption1, selectedOption2, shopifyAvailability, variantsLoaded, option1Name, option2Name]);
 
   // The actual stock count for the selected variant, if Shopify exposes it
   // (requires "quantity available" visibility enabled on the Storefront API
@@ -179,9 +205,9 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   // which case we don't block on it and let Shopify's cart be the final
   // check, same as before.
   const maxQtyAvailable = useMemo(() => {
-    const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+    const key = buildVariantKey([[option1Name, selectedOption1], [option2Name, selectedOption2]]);
     return shopifyQuantity[key] ?? shopifyQuantity['default'] ?? null;
-  }, [selectedOption1, selectedOption2, shopifyQuantity]);
+  }, [selectedOption1, selectedOption2, shopifyQuantity, option1Name, option2Name]);
 
   // How many of this exact product + variant combo are already sitting in
   // the cart from a previous add. Without this, two separate adds of 1
@@ -269,7 +295,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       variantPrice: activePrice,
       variantImage: selectedVariant?.image ?? product.images[0],
       shopifyVariantId: (() => {
-        const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+        const key = buildVariantKey([[option1Name, selectedOption1], [option2Name, selectedOption2]]);
         return shopifyVariants[key] || shopifyVariants['default'] || null;
       })(),
       qty,
@@ -298,7 +324,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       variantPrice: activePrice,
       variantImage: selectedVariant?.image ?? product.images[0],
       shopifyVariantId: (() => {
-        const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+        const key = buildVariantKey([[option1Name, selectedOption1], [option2Name, selectedOption2]]);
         return shopifyVariants[key] || shopifyVariants['default'] || null;
       })(),
       qty,
@@ -322,7 +348,7 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       variantPrice: activePrice,
       variantImage: selectedVariant?.image ?? product.images[0],
       shopifyVariantId: (() => {
-        const key = [selectedOption1, selectedOption2].filter(Boolean).join('/');
+        const key = buildVariantKey([[option1Name, selectedOption1], [option2Name, selectedOption2]]);
         return shopifyVariants[key] || shopifyVariants['default'] || null;
       })(),
       qty: clampedQty,
