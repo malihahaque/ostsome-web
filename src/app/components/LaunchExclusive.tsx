@@ -2,22 +2,7 @@ import { useProducts } from '../hooks/useProducts';
 import type { Product } from '../data/products';
 import { useAuth } from './AuthContext';
 import { getFostPrice } from '../data/pricing';
-
-// Exact figures from brand manager sheet
-// handle → { srp, promo } — SRP and promo are the sheet values, NOT products.ts price
-interface DealConfig {
-  handle: string;
-  srp: number;
-  promo: number;
-  label: string; // display vendor name
-}
-
-const FEATURED_DEALS: DealConfig[] = [
-  { handle: 'buttons-clip',                                    srp: 285, promo: 229, label: 'BUTTONS' },
-  { handle: 'loona-smart-pet-robot',                           srp: 758, promo: 649, label: 'LOONA'   },
-  { handle: 'kospet-tank-t4c-smartwatch',                      srp: 228, promo: 189, label: 'KOSPET'  }, // T4C = 17%, higher than T4's 16%
-  { handle: 'arzopa-ar-a1-gamut-15-6-fhd-portable-monitor-ips-1920-1080p-freq-60hz-type-c-hdmi-w-smart-cover-copy', srp: 129, promo: 99, label: 'ARZOPA' }, // -23%, highest Arzopa
-];
+import { getCampaignDeal, LAUNCH_FEATURED_HANDLES, type CampaignDeal } from '../data/campaignDeals';
 
 type Props = {
   onSelectProduct?: (p: Product) => void;
@@ -28,6 +13,14 @@ export function LaunchExclusive({ onSelectProduct, onViewAll }: Props) {
   const { products } = useProducts();
   const { user } = useAuth();
   const isFostMember = Boolean(user);
+
+  // Pulled from the shared campaign pricing sheet (campaignDeals.ts) — do
+  // NOT hardcode srp/promo here again, that's what caused the PDP price
+  // mismatch bug. Each handle in LAUNCH_FEATURED_HANDLES has exactly one
+  // (non-ambiguous) deal entry, so getCampaignDeal() is safe to use here.
+  const featuredDeals = LAUNCH_FEATURED_HANDLES
+    .map(h => getCampaignDeal(h))
+    .filter((d): d is CampaignDeal => Boolean(d));
 
   return (
     <section className="py-12 md:py-16 bg-white">
@@ -63,7 +56,7 @@ export function LaunchExclusive({ onSelectProduct, onViewAll }: Props) {
 
         {/* Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-5">
-          {FEATURED_DEALS.map(deal => {
+          {featuredDeals.map(deal => {
             const product = products.find(p => p.handle === deal.handle);
             if (!product) return null;
             const pct = Math.round(((deal.srp - deal.promo) / deal.srp) * 100);

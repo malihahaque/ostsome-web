@@ -3,40 +3,7 @@ import { useProducts } from '../hooks/useProducts';
 import type { Product } from '../data/products';
 import { useAuth } from './AuthContext';
 import { getFostPrice } from '../data/pricing';
-
-// One entry per unique discount — colours with identical discount collapsed into one card
-interface DealConfig {
-  handle: string;
-  label: string;
-  name: string;
-  srp: number;
-  promo: number;
-}
-
-const ALL_DEALS: DealConfig[] = [
-  // BUTTONS — Black & Gold both $229, collapsed to one card
-  { handle: 'buttons-clip',                         label: 'BUTTONS', name: 'BUTTONS Clip OWS Earphone',              srp: 285, promo: 229 },
-
-  // LOONA
-  { handle: 'loona-smart-pet-robot',                label: 'LOONA',   name: 'Petbot Premium (with Charging Dock)',     srp: 758, promo: 649 },
-
-  // KOSPET — T4 Black & Silver both $249, collapsed
-  { handle: 'kospet-tank-t4-smartwatch-black-silver', label: 'KOSPET', name: 'TANK T4',                               srp: 298, promo: 249 },
-  // KOSPET — T4C Black & Silver both $189, collapsed
-  { handle: 'kospet-tank-t4c-smartwatch',           label: 'KOSPET', name: 'TANK T4C',                                srp: 228, promo: 189 },
-
-  // ARZOPA monitors — all different prices, each its own card
-  { handle: 'arzopa-ar-a1-gamut-15-6-fhd-portable-monitor-ips-1920-1080p-freq-60hz-type-c-hdmi-w-smart-cover-copy', label: 'ARZOPA', name: '15.6" Portable Monitor (with Smart Cover)', srp: 129, promo: 99  },
-  { handle: 'arzopa-ar-a1t-15-6-touch-screen-portable-monitor-fhd-1920-1080p-60hz-type-c-hdmi-copy-1',              label: 'ARZOPA', name: '15.6" Portable Monitor (Touchscreen)',      srp: 189, promo: 159 },
-  { handle: 'arzopa-z1rc-2-5k-16-portable-monitor-brilliant-qhd-500nits-8bit-display-qhd-2560-1600-60hz-copy',      label: 'ARZOPA', name: '17.3" Portable Monitor',                   srp: 226, promo: 189 },
-  { handle: 'arzopa-z1rc-2-5k-16-portable-monitor-brilliant-qhd-500nits-8bit-display-qhd-2560-1600-60hz-copy',      label: 'ARZOPA', name: '16.1" Portable Monitor 144Hz',              srp: 184, promo: 149 },
-  { handle: 'arzopa-z1rc-2-5k-16-portable-monitor-brilliant-qhd-500nits-8bit-display-qhd-2560-1600-60hz-copy',      label: 'ARZOPA', name: '16.0" Portable Monitor 2K',                 srp: 192, promo: 159 },
-
-  // ARZOPA digital frames — Brown $89, Gold 10" $99, Gold 14" $169 — all different
-  { handle: 'arzopa-e1-dual-screen-portable-monitor', label: 'ARZOPA', name: '10.1" Digital Frame Brown',             srp: 120, promo: 89  },
-  { handle: 'arzopa-e1-dual-screen-portable-monitor', label: 'ARZOPA', name: '10.1" Digital Frame Gold',              srp: 135, promo: 99  },
-  { handle: 'arzopa-e1-dual-screen-portable-monitor', label: 'ARZOPA', name: '14.0" Digital Frame Gold',              srp: 229, promo: 169 },
-];
+import { getDealsByCampaign } from '../data/campaignDeals';
 
 type Props = {
   onBack?: () => void;
@@ -48,6 +15,13 @@ export function LaunchExclusivePage({ onBack, onSelectProduct, onJoinFost }: Pro
   const { products, loading } = useProducts();
   const { user } = useAuth();
   const isFostMember = Boolean(user);
+
+  // Every Launch Exclusive deal entry, pulled from the shared campaign
+  // pricing sheet (campaignDeals.ts). Handles with multiple entries (a few
+  // ARZOPA monitors/frames sharing one handle across different sizes/
+  // colors — see the DATA GAP note in campaignDeals.ts) are preserved as
+  // separate cards here on purpose, same as the old local ALL_DEALS array.
+  const allDeals = getDealsByCampaign('launch');
 
   return (
     <div className="min-h-screen bg-white">
@@ -101,7 +75,7 @@ export function LaunchExclusivePage({ onBack, onSelectProduct, onJoinFost }: Pro
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
-            {ALL_DEALS.map((deal, idx) => {
+            {allDeals.map((deal, idx) => {
               const product = products.find(p => p.handle === deal.handle);
               if (!product) return null;
               const pct = Math.round(((deal.srp - deal.promo) / deal.srp) * 100);

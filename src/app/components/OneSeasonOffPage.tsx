@@ -1,10 +1,9 @@
 import { ChevronLeft } from 'lucide-react';
 import { useProducts } from '../hooks/useProducts';
-import { CLEARANCE_DEALS } from './OneSeasonOff';
 import type { Product } from '../data/products';
-import type { ClearanceDeal } from './OneSeasonOff';
 import { useAuth } from './AuthContext';
 import { getFostPrice } from '../data/pricing';
+import { getDealsByCampaign } from '../data/campaignDeals';
 
 type Props = {
   onBack?: () => void;
@@ -15,6 +14,12 @@ export function OneSeasonOffPage({ onBack, onSelectProduct }: Props) {
   const { products, loading } = useProducts();
   const { user } = useAuth();
   const isFostMember = Boolean(user);
+
+  // Every Clearance deal entry, pulled from the shared campaign pricing
+  // sheet (campaignDeals.ts) — the same source OneSeasonOff.tsx and
+  // ProductDetail.tsx use, so this page can no longer drift out of sync
+  // with the homepage teaser or the PDP.
+  const clearanceDeals = getDealsByCampaign('clearance');
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF7F2' }}>
@@ -68,7 +73,7 @@ export function OneSeasonOffPage({ onBack, onSelectProduct }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
-            {CLEARANCE_DEALS.map((deal: ClearanceDeal, idx: number) => {
+            {clearanceDeals.map((deal, idx) => {
               const product = products.find(p => p.handle === deal.handle);
               if (!product) return null;
               const pct = Math.round(((deal.srp - deal.promo) / deal.srp) * 100);
