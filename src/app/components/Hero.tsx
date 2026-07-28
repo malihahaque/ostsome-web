@@ -83,7 +83,7 @@ function FlashSaleCountdown() {
 
   const boxStyle = {
     left: "50%",
-    top: "70%",
+    top: "58%",
     width: "24%",
     height: "9%",
     transform: "translateX(-50%)",
