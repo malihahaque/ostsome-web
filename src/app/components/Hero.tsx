@@ -82,9 +82,9 @@ function FlashSaleCountdown() {
   const { state, days, hours, minutes } = useSaleState();
 
   const boxStyle = {
-    left: "45%",
+    left: "50%",
     top: "58%",
-    width: "24%",
+    width: "18%",
     height: "9%",
     transform: "translateX(-50%)",
   };
