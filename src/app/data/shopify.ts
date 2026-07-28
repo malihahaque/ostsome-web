@@ -45,6 +45,7 @@ export type ShopifyProduct = {
       node: {
         id: string;
         title: string;
+        sku: string;
         price: { amount: string; currencyCode: string };
         compareAtPrice: { amount: string; currencyCode: string } | null;
         availableForSale: boolean;
@@ -99,7 +100,7 @@ export async function fetchAllProducts(): Promise<ShopifyProduct[]> {
               variants(first: 20) {
                 edges {
                   node {
-                    id title availableForSale quantityAvailable
+                    id title sku availableForSale quantityAvailable
                     price { amount currencyCode }
                     compareAtPrice { amount currencyCode }
                     selectedOptions { name value }
@@ -138,7 +139,7 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
         variants(first: 20) {
           edges {
             node {
-              id title availableForSale quantityAvailable
+              id title sku availableForSale quantityAvailable
               price { amount currencyCode }
               compareAtPrice { amount currencyCode }
               selectedOptions { name value }
