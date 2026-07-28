@@ -61,6 +61,14 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const [shopifyVariants, setShopifyVariants] = useState<Record<string, string>>({});
   const [shopifyAvailability, setShopifyAvailability] = useState<Record<string, boolean>>({});
   const [shopifyQuantity, setShopifyQuantity] = useState<Record<string, number | null>>({});
+  // Live per-variant price/compareAtPrice, keyed by SKU — the static
+  // productVariants.ts price field goes stale the moment a price is
+  // changed in Shopify (e.g. via the campaign price-update script) without
+  // that static snapshot being regenerated. This mirrors the same
+  // SKU-based approach used for shopifyVariants above, for the same
+  // reason: SKU is stable, the static file is not.
+  const [shopifyPrices, setShopifyPrices] = useState<Record<string, number>>({});
+  const [shopifyCompareAtPrices, setShopifyCompareAtPrices] = useState<Record<string, number | null>>({});
   const [variantsLoaded, setVariantsLoaded] = useState(false);
   const [stockWarning, setStockWarning] = useState<{ requested: number; available: number; intent: 'cart' | 'checkout' } | null>(null);
 
@@ -73,25 +81,32 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     }
   }, [product.handle]);
 
-  // Fetch Shopify variant GIDs + live stock status for checkout & sold-out display.
-  // The static productVariants.ts data doesn't carry current stock, so a color
-  // that sold out on Shopify still showed as selectable here — this fixes that
-  // by checking availableForSale from the live Storefront API response.
+  // Fetch Shopify variant GIDs + live stock status + live price for
+  // checkout, sold-out display, and accurate pricing. The static
+  // productVariants.ts data doesn't carry current stock OR current price —
+  // both go stale independently of each other, so both need a live
+  // override, not just availability.
   useEffect(() => {
     fetchProductByHandle(product.handle).then(sp => {
       if (!sp) { setVariantsLoaded(true); return; }
       const idMap: Record<string, string> = {};
       const availMap: Record<string, boolean> = {};
       const qtyMap: Record<string, number | null> = {};
+      const priceMap: Record<string, number> = {};
+      const compareAtMap: Record<string, number | null> = {};
       sp.variants.edges.forEach(({ node }) => {
         const key = skuKey(node.sku);
         idMap[key] = node.id;
         availMap[key] = node.availableForSale;
         qtyMap[key] = node.quantityAvailable ?? null;
+        priceMap[key] = parseFloat(node.price.amount);
+        compareAtMap[key] = node.compareAtPrice ? parseFloat(node.compareAtPrice.amount) : null;
       });
       setShopifyVariants(idMap);
       setShopifyAvailability(availMap);
       setShopifyQuantity(qtyMap);
+      setShopifyPrices(priceMap);
+      setShopifyCompareAtPrices(compareAtMap);
       setVariantsLoaded(true);
     }).catch(() => setVariantsLoaded(true));
   }, [product.handle]);
@@ -109,11 +124,6 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
       }
     }
   }, [variants]);
-
-  const hasDiscount = product.comparePrice && product.comparePrice > product.price;
-  const discountPct = hasDiscount
-    ? Math.round(((product.comparePrice! - product.price) / product.comparePrice!) * 100)
-    : 0;
 
   const option1Name = variants[0]?.option1Name ?? null;
   const option2Name = variants[0]?.option2Name ?? null;
@@ -140,7 +150,29 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
     ) ?? null;
   }, [variants, selectedOption1, selectedOption2]);
 
-  const activePrice = selectedVariant ? selectedVariant.price : product.price;
+  // Live price always wins once loaded — the static productVariants.ts
+  // price field is a point-in-time snapshot and goes stale the moment a
+  // price changes in Shopify (exactly what happened after the campaign
+  // price-update script ran: static file still said $35, live Shopify
+  // already said $19). Before the live fetch resolves, fall back to the
+  // static/base price so something reasonable shows immediately rather
+  // than a blank state.
+  const liveVariantKey = skuKey(selectedVariant?.sku);
+  const livePrice = shopifyPrices[liveVariantKey];
+  const liveCompareAtPrice = shopifyCompareAtPrices[liveVariantKey];
+  const activePrice = livePrice ?? (selectedVariant ? selectedVariant.price : product.price);
+
+  // Same live-wins-over-stale-static logic for the strikethrough/discount
+  // shown in the default (non-flash, non-campaign, non-FOST) price
+  // branch — previously always compared product.comparePrice/product.price
+  // (the base product's default variant, ignoring whichever variant the
+  // customer actually has selected), which had the same staleness problem
+  // as activePrice did.
+  const effectiveComparePrice = liveCompareAtPrice ?? product.comparePrice;
+  const hasDiscount = Boolean(effectiveComparePrice && effectiveComparePrice > activePrice);
+  const discountPct = hasDiscount
+    ? Math.round(((effectiveComparePrice! - activePrice) / effectiveComparePrice!) * 100)
+    : 0;
 
   const allImages = useMemo(() => {
     const variantImgs = variants
@@ -594,14 +626,14 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                   <span className="text-[10px] font-bold text-white bg-[#F16C10] px-2 py-0.5 rounded-full uppercase tracking-wide">FOST Price</span>
                 </div>
                 {hasDiscount && (
-                  <p className="text-xs text-neutral-400 mt-1">Original price SGD {product.comparePrice!.toFixed(2)} — now with an extra 5% FOST member discount</p>
+                  <p className="text-xs text-neutral-400 mt-1">Original price SGD {effectiveComparePrice!.toFixed(2)} — now with an extra 5% FOST member discount</p>
                 )}
               </div>
             ) : (
               <div className="flex items-baseline gap-3 mb-1">
                 <span className="text-3xl font-bold text-black">SGD {activePrice.toFixed(2)}</span>
                 {hasDiscount && (
-                  <span className="text-lg text-neutral-400 line-through">SGD {product.comparePrice!.toFixed(2)}</span>
+                  <span className="text-lg text-neutral-400 line-through">SGD {effectiveComparePrice!.toFixed(2)}</span>
                 )}
               </div>
             )}
