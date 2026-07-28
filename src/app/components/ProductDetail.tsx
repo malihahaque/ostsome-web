@@ -102,6 +102,22 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
         priceMap[key] = parseFloat(node.price.amount);
         compareAtMap[key] = node.compareAtPrice ? parseFloat(node.compareAtPrice.amount) : null;
       });
+      // Single-variant products (no colour/size choices) are often absent
+      // from productVariants.ts entirely, so selectedVariant never gets
+      // set and the app-side lookup always falls back to the literal key
+      // 'default'. The live SKU keying above alone can't satisfy that
+      // fallback, since Shopify assigns a real SKU even to a lone
+      // "Default Title" variant — so also register that one variant under
+      // 'default' explicitly, letting both fallback paths agree the same
+      // way they used to before matching switched to SKU-based keys.
+      if (sp.variants.edges.length === 1) {
+        const only = sp.variants.edges[0].node;
+        idMap['default'] = only.id;
+        availMap['default'] = only.availableForSale;
+        qtyMap['default'] = only.quantityAvailable ?? null;
+        priceMap['default'] = parseFloat(only.price.amount);
+        compareAtMap['default'] = only.compareAtPrice ? parseFloat(only.compareAtPrice.amount) : null;
+      }
       setShopifyVariants(idMap);
       setShopifyAvailability(availMap);
       setShopifyQuantity(qtyMap);
