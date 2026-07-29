@@ -222,18 +222,16 @@ export function FridayFlashDeals({
                     </div>
                   </div>
 
-                  {!isFostMember && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onJoinFost();
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-orange-600 border border-orange-200 rounded-lg py-2 hover:bg-orange-50 transition-colors"
-                    >
-                      <Lock size={12} />
-                      JOIN FOST TO UNLOCK
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJoinFost();
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-orange-600 border border-orange-200 rounded-lg py-2 hover:bg-orange-50 transition-colors"
+                  >
+                    <Lock size={12} />
+                    JOIN FOST TO UNLOCK
+                  </button>
                 </div>
               </button>
             );
