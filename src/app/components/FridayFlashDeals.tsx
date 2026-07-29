@@ -33,7 +33,7 @@ import type { Product } from "../data/products";
 // imports folder — a space right before the file extension can break the
 // import path on some setups.
 import crusherImg from "../../imports/skullcandy crusher wireless.jpg";
-import heshEvoImg from "../../imports/Skullcandy Hesh Evo.jpg";
+import heshEvoImg from "../../imports/Skullcandy Hesh Evo .jpg";
 import pushAncImg from "../../imports/skullcandy push anc.jpg";
 import dimeEvoImg from "../../imports/skullcandy dime evo.jpg";
 import cleerArcImg from "../../imports/Cleer ARC 3.webp";
