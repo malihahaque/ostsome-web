@@ -20,7 +20,7 @@
 
 import { useSaleState, FLASH_SALE_PRICES, getFlashPrice } from "../data/flashSale";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { Clock, Lock, ShoppingBag } from "lucide-react";
+import { Clock, Lock } from "lucide-react";
 import type { Product } from "../data/products";
 
 // Local card images for this specific sale, same pattern as Hero.tsx's
@@ -247,25 +247,6 @@ export function FridayFlashDeals({
               className="text-sm font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
             >
               View All Flash Deals →
-            </button>
-          </div>
-        )}
-
-        {!isFostMember && (
-          <div className="mt-8 bg-gray-50 rounded-2xl px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs md:text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <ShoppingBag size={14} className="text-orange-500" /> Member-only prices
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock size={14} className="text-orange-500" /> First access to new drops
-              </span>
-            </div>
-            <button
-              onClick={onJoinFost}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm px-6 py-2.5 rounded-full transition-colors shrink-0"
-            >
-              JOIN FOST FREE
             </button>
           </div>
         )}
