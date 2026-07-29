@@ -33,7 +33,7 @@ import type { Product } from "../data/products";
 // imports folder — a space right before the file extension can break the
 // import path on some setups.
 import crusherImg from "../../imports/skullcandy crusher wireless.jpg";
-import heshEvoImg from "../../imports/Skullcandy Hesh Evo .jpg";
+import heshEvoImg from "../../imports/Skullcandy Hesh Evo.jpg";
 import pushAncImg from "../../imports/skullcandy push anc.jpg";
 import dimeEvoImg from "../../imports/skullcandy dime evo.jpg";
 import cleerArcImg from "../../imports/Cleer ARC 3.webp";
@@ -46,6 +46,35 @@ const FLASH_DEAL_IMAGES: Record<string, string> = {
   "skullcandy-push-ultra-anc-true-wireless-earbuds": pushAncImg,
   "skullcandy-dime-evo-true-wireless-earbuds": dimeEvoImg,
   "pre-order-cleer-arc-iii-music-open-ear-wireless-earbuds": cleerArcImg,
+};
+
+// Hardcoded display name/brand per handle, matching the confirmed banner
+// copy exactly. Not pulling this from product.name/product.brand because
+// those field names on the actual Product type are still unconfirmed —
+// the previous attempt using them silently rendered blank text. Once
+// data/products.ts is shared, this can be swapped back to reading live
+// from the product object if preferred.
+const FLASH_DEAL_INFO: Record<string, { name: string; brand: string }> = {
+  "pre-order-cleer-arc-iii-music-open-ear-wireless-earbuds": {
+    name: "ARC III Music Open-Ear Wireless Earbuds",
+    brand: "Cleer",
+  },
+  "skullcandy-dime-evo-true-wireless-earbuds": {
+    name: "Dime® Evo True Wireless Earbuds",
+    brand: "Skullcandy",
+  },
+  "skullcandy-push-ultra-anc-true-wireless-earbuds": {
+    name: "Push ANC Active True Wireless Earbuds",
+    brand: "Skullcandy",
+  },
+  "skullcandy-hesh-evo-wireless-headphones": {
+    name: "Hesh Evo Wireless Headphones",
+    brand: "Skullcandy",
+  },
+  "skullcandy-crusher-3-0-wireless-headphones": {
+    name: "Crusher Wireless 3.0 Over-Ear Headphones",
+    brand: "Skullcandy",
+  },
 };
 
 type FridayFlashDealsProps = {
@@ -149,6 +178,7 @@ export function FridayFlashDeals({
             const flashPrice = getFlashPrice(product.handle);
             const retailPrice = product.price;
             const imageSrc = FLASH_DEAL_IMAGES[product.handle] ?? "";
+            const info = FLASH_DEAL_INFO[product.handle];
 
             return (
               <button
@@ -168,39 +198,37 @@ export function FridayFlashDeals({
                 </div>
 
                 <div className="p-3">
-                  {/* ⚠️ Assumes Product has a `brand` field — adjust if your
-                      actual type names it differently (e.g. `vendor`) */}
                   <div className="text-[10px] font-bold text-orange-600 uppercase tracking-wide mb-0.5">
-                    {(product as any).brand ?? ""}
+                    {info?.brand ?? ""}
                   </div>
                   <div className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 min-h-[2.5rem]">
-                    {product.name}
+                    {info?.name ?? product.handle}
                   </div>
 
-                  {isFostMember ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-gray-400 tracking-wide">RETAIL PRICE</span>
-                        <span className="text-xs text-gray-400 line-through">
-                          {retailPrice !== undefined ? formatSGD(retailPrice) : ""}
-                        </span>
-                      </div>
-                      <div className="flex flex-col bg-orange-50 rounded-lg px-2 py-1">
-                        <span className="text-[9px] text-orange-500 tracking-wide font-bold">
-                          FOST PRICE
-                        </span>
-                        <span className="text-sm font-extrabold text-orange-600">
-                          {flashPrice !== undefined ? formatSGD(flashPrice) : ""}
-                        </span>
-                      </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-gray-400 tracking-wide">RETAIL PRICE</span>
+                      <span className="text-xs text-gray-400 line-through">
+                        {retailPrice !== undefined ? formatSGD(retailPrice) : ""}
+                      </span>
                     </div>
-                  ) : (
+                    <div className="flex flex-col bg-orange-50 rounded-lg px-2 py-1">
+                      <span className="text-[9px] text-orange-500 tracking-wide font-bold">
+                        FOST PRICE
+                      </span>
+                      <span className="text-sm font-extrabold text-orange-600">
+                        {flashPrice !== undefined ? formatSGD(flashPrice) : ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!isFostMember && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onJoinFost();
                       }}
-                      className="mt-1 w-full flex items-center justify-center gap-1.5 text-xs font-bold text-orange-600 border border-orange-200 rounded-lg py-2 hover:bg-orange-50 transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-orange-600 border border-orange-200 rounded-lg py-2 hover:bg-orange-50 transition-colors"
                     >
                       <Lock size={12} />
                       JOIN FOST TO UNLOCK
