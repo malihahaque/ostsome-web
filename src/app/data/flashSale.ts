@@ -26,14 +26,20 @@ export const FLASH_SALE_END = new Date("2026-07-31T19:00:00+08:00").getTime();
 export const FLASH_SALE_PRICES: Record<string, number> = {
   "looki-l1": 289.0,
   "hohem-isteady-mt3-pro-and-mt3-pro-kit": 649.0,
+  "pre-order-cleer-arc-iii-music-open-ear-wireless-earbuds": 99.0,
+  "skullcandy-dime-evo-true-wireless-earbuds": 59.0,
+  "skullcandy-push-ultra-anc-true-wireless-earbuds": 99.0,
+  "skullcandy-hesh-evo-wireless-headphones": 79.0,
+  "skullcandy-crusher-3-0-wireless-headphones": 99.0,
 };
 
 // Some flash-sale products have multiple variants, but the deal only
 // applies to ONE of them (e.g. Hohem: the MT3 Pro Kit is on flash sale,
 // the base MT3 Pro is not). Map: product handle -> the exact option1Value
 // the flash price is scoped to. Omit a handle here if its flash price
-// should apply no matter which variant is selected (e.g. Looki L1, which
-// has no variants).
+// should apply no matter which variant is selected — this is the case for
+// all 5 Skullcandy/Cleer products below (deal applies to any colour/variant),
+// same as Looki L1.
 export const FLASH_SALE_VARIANT_SCOPE: Record<string, string> = {
   "hohem-isteady-mt3-pro-and-mt3-pro-kit": "MT3 Pro Kit",
   "looki-l1": "Black",

@@ -3,19 +3,27 @@
 // Listens for Shopify's `orders/paid` webhook. Whenever a paid order includes
 // one of the flash-sale variants, it re-tallies total units sold since
 // SALE_START directly from Shopify (no separate database — Shopify's order
-// history is the source of truth on every check). Looki L1 and the Hohem
-// MT3 Pro Kit each have their OWN automatic discount (different fixed $
-// amounts, since they're priced too differently for one shared discount to
-// hit both exact target prices) — so when one product hits its 5-unit cap,
-// only THAT product's discount gets deactivated; the other keeps running
-// until it hits its own cap or the sale window ends.
+// history is the source of truth on every check). Each PRODUCT in
+// DEAL_PRODUCTS has its OWN automatic discount and its OWN 5-unit cap — so
+// when one product hits its cap, only THAT product's discount gets
+// deactivated; the others keep running until they hit their own cap or the
+// sale window ends.
 //
-// Same rule as the previous drop: first 5 units sold OR the 1-hour window
-// closing, whichever comes first. The cap-deactivation here handles the
-// "5 units" half; the 1-hour half is enforced by the automatic discount's
-// own active/end dates set in Shopify Admin, plus the frontend's
-// FLASH_SALE_END in flashSale.ts (which stops showing the deal once the
-// hour is up regardless of whether the cap was hit).
+// NOTE on multi-variant products: Cleer ARC III, Skullcandy Dime Evo, and
+// Skullcandy Hesh Evo each list more than one variant (colours) below,
+// because the flash price applies to ANY colour a customer picks — but all
+// colours of the same product share ONE 5-unit cap and ONE discount, not 5
+// units per colour. Selling 3x white + 2x black Dime Evo still hits the cap
+// at 5 and deactivates the single "Friday Flash Deal — Dime Evo" discount.
+// Looki L1 and Hohem MT3 Pro Kit remain scoped to a single variant each,
+// same as before.
+//
+// Same rule as previous drops: first 5 units sold (combined across a
+// product's variants) OR the 1-hour window closing, whichever comes first.
+// The cap-deactivation here handles the "5 units" half; the 1-hour half is
+// enforced by each automatic discount's own active/end dates set in Shopify
+// Admin, plus the frontend's FLASH_SALE_END in flashSale.ts (which stops
+// showing the deal once the hour is up regardless of whether the cap was hit).
 
 const crypto = require("crypto");
 
@@ -24,27 +32,73 @@ const API_VERSION = "2026-07";
 const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
 const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
-// TODO: replace with the real variant GIDs for the two deal products.
-// Find these in Shopify Admin > Products > [product] > variant, the URL
-// contains the numeric ID, e.g. .../variants/44771234567890
-// -> gid://shopify/ProductVariant/44771234567890
-//
-// Each product gets its OWN automatic discount (fixed $ off) because the two
-// products are priced too differently for one shared discount to hit both
-// exact target prices. discountTitle must exactly match the title of that
-// product's discount in Shopify Admin.
-const DEAL_VARIANTS = {
-  "gid://shopify/ProductVariant/47901198155914": {
+// Each key is an internal product key (not a Shopify ID) used to group
+// variants together. discountTitle must exactly match the title of that
+// product's automatic discount in Shopify Admin.
+const DEAL_PRODUCTS = {
+  "looki-l1": {
     name: "Looki L1 (Black)",
     cap: 5,
     discountTitle: "Friday Flash Deal — Looki L1",
+    variantIds: ["gid://shopify/ProductVariant/47901198155914"],
   },
-  "gid://shopify/ProductVariant/49524758053002": {
+  "hohem-mt3-pro-kit": {
     name: "Hohem MT3 Pro Kit",
     cap: 5,
     discountTitle: "Friday Flash Deal — Hohem MT3 Pro Kit",
+    variantIds: ["gid://shopify/ProductVariant/49524758053002"],
+  },
+  "cleer-arc-iii": {
+    name: "Cleer ARC III",
+    cap: 5,
+    discountTitle: "Friday Flash Deal — Cleer ARC III",
+    variantIds: [
+      "gid://shopify/ProductVariant/45517489995914",
+      "gid://shopify/ProductVariant/45946653048970",
+      "gid://shopify/ProductVariant/45946653081738",
+    ],
+  },
+  "dime-evo": {
+    name: "Skullcandy Dime Evo",
+    cap: 5,
+    discountTitle: "Friday Flash Deal — Dime Evo",
+    variantIds: [
+      "gid://shopify/ProductVariant/45430632841354",
+      "gid://shopify/ProductVariant/45430632874122",
+      "gid://shopify/ProductVariant/46148701421706",
+    ],
+  },
+  "push-anc": {
+    name: "Skullcandy Push ANC",
+    cap: 5,
+    discountTitle: "Friday Flash Deal — Push ANC",
+    variantIds: ["gid://shopify/ProductVariant/48739507896458"],
+  },
+  "hesh-evo": {
+    name: "Skullcandy Hesh Evo",
+    cap: 5,
+    discountTitle: "Friday Flash Deal — Hesh Evo",
+    variantIds: [
+      "gid://shopify/ProductVariant/34959256617098",
+      "gid://shopify/ProductVariant/45430703259786",
+    ],
+  },
+  "crusher-3": {
+    name: "Skullcandy Crusher 3.0",
+    cap: 5,
+    discountTitle: "Friday Flash Deal — Crusher 3.0",
+    variantIds: ["gid://shopify/ProductVariant/48739507765386"],
   },
 };
+
+// Reverse lookup: variant GID -> product key. Built once so the webhook can
+// quickly tell whether an incoming order touches any deal product/variant.
+const VARIANT_TO_PRODUCT_KEY = {};
+for (const [productKey, product] of Object.entries(DEAL_PRODUCTS)) {
+  for (const variantId of product.variantIds) {
+    VARIANT_TO_PRODUCT_KEY[variantId] = productKey;
+  }
+}
 
 // Sale window start — used to scope the order query so we only count units
 // sold under this specific drop, not historical sales of the same products.
@@ -83,6 +137,8 @@ async function shopifyGraphQL(query, variables = {}) {
   return json.data;
 }
 
+// Returns totals keyed by PRODUCT KEY (not variant GID) — units are summed
+// across all of a product's variants, since colours share one cap.
 async function getDealUnitsSold() {
   const data = await shopifyGraphQL(
     `
@@ -108,13 +164,14 @@ async function getDealUnitsSold() {
   );
 
   const totals = {};
-  for (const key of Object.keys(DEAL_VARIANTS)) totals[key] = 0;
+  for (const key of Object.keys(DEAL_PRODUCTS)) totals[key] = 0;
 
   for (const { node: order } of data.orders.edges) {
     for (const { node: li } of order.lineItems.edges) {
       const variantId = li.variant?.id;
-      if (variantId && Object.prototype.hasOwnProperty.call(totals, variantId)) {
-        totals[variantId] += li.quantity;
+      const productKey = variantId && VARIANT_TO_PRODUCT_KEY[variantId];
+      if (productKey) {
+        totals[productKey] += li.quantity;
       }
     }
   }
@@ -176,7 +233,7 @@ exports.handler = async (event) => {
     const orderVariantIds = (order.line_items || []).map(
       (li) => `gid://shopify/ProductVariant/${li.variant_id}`
     );
-    const touchesDeal = orderVariantIds.some((id) => DEAL_VARIANTS[id]);
+    const touchesDeal = orderVariantIds.some((id) => VARIANT_TO_PRODUCT_KEY[id]);
 
     if (!touchesDeal) {
       return { statusCode: 200, body: "No deal items in this order — ignored" };
@@ -184,11 +241,11 @@ exports.handler = async (event) => {
 
     const totals = await getDealUnitsSold();
     const capsReached = Object.entries(totals).filter(
-      ([variantId, qty]) => qty >= DEAL_VARIANTS[variantId].cap
+      ([productKey, qty]) => qty >= DEAL_PRODUCTS[productKey].cap
     );
 
-    for (const [variantId] of capsReached) {
-      await deactivateDiscount(DEAL_VARIANTS[variantId].discountTitle);
+    for (const [productKey] of capsReached) {
+      await deactivateDiscount(DEAL_PRODUCTS[productKey].discountTitle);
     }
 
     return { statusCode: 200, body: JSON.stringify(totals) };
