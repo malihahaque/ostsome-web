@@ -82,3 +82,44 @@ export function getFlashPriceForItem(handle: string, selectedOption1?: string | 
   if (requiredVariant && selectedOption1 !== requiredVariant) return undefined;
   return price;
 }
+
+// Shared 3-state sale clock (countdown -> live -> ended), used by both the
+// Hero banner countdown badge and the FridayFlashDeals homepage section, so
+// there is exactly ONE place computing "how long until/since the sale" —
+// previously this lived only inside Hero.tsx as a local hook.
+export type SaleState = "countdown" | "live" | "ended";
+
+export function useSaleState(): {
+  state: SaleState;
+  days: string;
+  hours: string;
+  minutes: string;
+} {
+  const getState = (): { state: SaleState; timeLeft: number } => {
+    const now = Date.now();
+    if (now < FLASH_SALE_START) return { state: "countdown", timeLeft: FLASH_SALE_START - now };
+    if (now < FLASH_SALE_END) return { state: "live", timeLeft: FLASH_SALE_END - now };
+    return { state: "ended", timeLeft: 0 };
+  };
+
+  const [info, setInfo] = useState(getState);
+
+  useEffect(() => {
+    const tick = () => setInfo(getState());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const clamped = Math.max(info.timeLeft, 0);
+  const days = Math.floor(clamped / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((clamped / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((clamped / (1000 * 60)) % 60);
+
+  return {
+    state: info.state,
+    days: String(days).padStart(2, "0"),
+    hours: String(hours).padStart(2, "0"),
+    minutes: String(minutes).padStart(2, "0"),
+  };
+}

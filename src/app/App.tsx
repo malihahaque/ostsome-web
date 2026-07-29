@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './components/AuthContext';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
+import { FridayFlashDeals } from './components/FridayFlashDeals';
 import { LaunchExclusive } from './components/LaunchExclusive';
 import { OneSeasonOff } from './components/OneSeasonOff';
 import { OneSeasonOffPage } from './components/OneSeasonOffPage';
@@ -91,6 +92,21 @@ function AppInner() {
   const { products: liveProducts } = useProducts();
   const heshAncProduct = liveProducts.find(p => p.handle === 'skullcandy-hesh-anc-noise-canceling-wireless-headphones');
   const lookiProduct = liveProducts.find(p => p.handle === 'looki-l1');
+
+  // Friday flash deal products, in the order they should display in the
+  // FridayFlashDeals homepage section. Keep this handle list in sync with
+  // FLASH_SALE_PRICES in src/app/data/flashSale.ts — if a handle is added or
+  // removed there for a future sale, update it here too.
+  const flashDealHandles = [
+    'pre-order-cleer-arc-iii-music-open-ear-wireless-earbuds',
+    'skullcandy-dime-evo-true-wireless-earbuds',
+    'skullcandy-push-ultra-anc-true-wireless-earbuds',
+    'skullcandy-hesh-evo-wireless-headphones',
+    'skullcandy-crusher-3-0-wireless-headphones',
+  ];
+  const flashDealProducts = flashDealHandles
+    .map(handle => liveProducts.find(p => p.handle === handle))
+    .filter((p): p is Product => Boolean(p));
 
   // Mirrors current nav-relevant state without triggering re-renders — used
   // so goTo() always has the latest values even though React state updates
@@ -321,6 +337,12 @@ function AppInner() {
             onNavToFostSignup={() => setAuthModal({ open: true, view: 'signup' })}
             onNavToClearance={() => goTo({ page: 'one-season-off' })}
             onNavToLooki={() => { if (lookiProduct) handleSelectProduct(lookiProduct); }}
+          />
+          <FridayFlashDeals
+            products={flashDealProducts}
+            isFostMember={Boolean(user)}
+            onSelectProduct={handleSelectProduct}
+            onJoinFost={() => setAuthModal({ open: true, view: 'signup' })}
           />
           <WhatsNewThisWeek onShopAll={handleNavToProducts} onSelectProduct={handleSelectProduct} />
           <DiscoveryByLifestyle onNavToCategory={handleNavToNavCategory} onNavToProducts={handleNavToProducts} />
