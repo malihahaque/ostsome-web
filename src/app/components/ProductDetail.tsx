@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingCart, Star, Shield, Truck, RefreshCw, Check, X } from 'lucide-react';
 import type { Product } from '../data/products';
 import { getVariants } from '../data/productVariants';
@@ -40,6 +40,13 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   const flashSaleActive = useFlashSaleActive();
   const flashSalePrice = getFlashPrice(product.handle);
   const [activeImg, setActiveImg] = useState(0);
+  // Swipe support for the product gallery on touch devices — the prev/next
+  // arrows are hover-only (opacity-0 group-hover:opacity-100), which never
+  // triggers on mobile, so touch users previously had to tap each thumbnail
+  // individually. touchStartX/touchDeltaX track the drag; a swipe past
+  // SWIPE_THRESHOLD_PX advances/retreats activeImg on touch end.
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef(0);
   const [qty, setQty] = useState(1);
   const [selectedOption1, setSelectedOption1] = useState<string | null>(null);
   const [selectedOption2, setSelectedOption2] = useState<string | null>(null);
@@ -205,6 +212,30 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
   // and confirmed every combo containing this value is unavailable — before
   // the fetch resolves, we treat everything as available to avoid a flash
   // of grey swatches on first paint.
+  const SWIPE_THRESHOLD_PX = 40;
+
+  function handleGalleryTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  }
+
+  function handleGalleryTouchMove(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  }
+
+  function handleGalleryTouchEnd() {
+    if (allImages.length > 1 && Math.abs(touchDeltaX.current) > SWIPE_THRESHOLD_PX) {
+      if (touchDeltaX.current < 0) {
+        setActiveImg((i) => (i + 1) % allImages.length); // swiped left → next
+      } else {
+        setActiveImg((i) => (i - 1 + allImages.length) % allImages.length); // swiped right → prev
+      }
+    }
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  }
+
   function isOption1ValueAvailable(val: string): boolean {
     if (!variantsLoaded || Object.keys(shopifyAvailability).length === 0) return true;
     const matching = variants.filter(v => v.option1Value === val);
@@ -531,7 +562,13 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
 
           {/* Image Gallery */}
           <div className="flex flex-col gap-4">
-            <div className="relative rounded-2xl overflow-hidden bg-neutral-50 border border-neutral-100 group" style={{ aspectRatio: '1 / 1' }}>
+            <div
+              className="relative rounded-2xl overflow-hidden bg-neutral-50 border border-neutral-100 group touch-pan-y"
+              style={{ aspectRatio: '1 / 1' }}
+              onTouchStart={handleGalleryTouchStart}
+              onTouchMove={handleGalleryTouchMove}
+              onTouchEnd={handleGalleryTouchEnd}
+            >
               <img
                 src={allImages[activeImg] ?? product.images[0]}
                 alt={product.title}
@@ -542,13 +579,13 @@ export function ProductDetail({ product, onBack, onCheckout }: ProductDetailProp
                 <>
                   <button
                     onClick={() => setActiveImg((i) => (i - 1 + allImages.length) % allImages.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white shadow rounded-full flex items-center justify-center text-black transition opacity-0 group-hover:opacity-100"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white shadow rounded-full flex items-center justify-center text-black transition opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   >
                     <ChevronLeft size={18} />
                   </button>
                   <button
                     onClick={() => setActiveImg((i) => (i + 1) % allImages.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white shadow rounded-full flex items-center justify-center text-black transition opacity-0 group-hover:opacity-100"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white shadow rounded-full flex items-center justify-center text-black transition opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   >
                     <ChevronRight size={18} />
                   </button>
