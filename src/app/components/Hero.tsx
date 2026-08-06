@@ -19,6 +19,91 @@ const imageBannerLabels = [
   "Looki L1",
 ];
 
+function CountdownUnit({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center leading-none">
+      <span
+        className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500"
+        style={{ fontSize: "clamp(0.8rem, 2.1vw, 2rem)" }}
+      >
+        {value}
+      </span>
+      <span
+        className="text-gray-500 tracking-wide"
+        style={{ fontSize: "clamp(0.35rem, 0.65vw, 0.65rem)" }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// Overlay pill that sits in the gap between the "THIS FRIDAY, [date] / 6PM–7PM
+// ONLY" box and the "FOST MEMBERS UNLOCK IT" line on the Friday Flash Deal
+// banner. Position/size is tuned specifically against that banner's 1800x600px
+// layout — left: 50% + translateX(-50%) keeps it centered under the date box,
+// top: 58% is the vertical slot between the two text blocks. Re-tune these
+// percentages if the banner artwork's layout changes.
+function FlashSaleCountdown() {
+  const { state, days, hours, minutes } = useSaleState();
+
+  const boxStyle = {
+    left: "50%",
+    top: "58%",
+    width: "18%",
+    height: "9%",
+    transform: "translateX(-50%)",
+  };
+
+  return (
+    <div
+      className="absolute flex items-center justify-center pointer-events-none z-10 rounded-full border-2 border-[#D4537E]/40 bg-white/95 shadow-sm px-[1.5%]"
+      style={boxStyle}
+    >
+      {state === "live" && (
+        <span
+          className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 tracking-wide animate-pulse"
+          style={{ fontSize: "clamp(0.9rem, 2.4vw, 2.1rem)" }}
+        >
+          DEAL LIVE
+        </span>
+      )}
+
+      {state === "ended" && (
+        <div className="flex flex-col items-center justify-center text-center leading-tight">
+          <span
+            className="font-extrabold text-gray-800 tracking-wide"
+            style={{ fontSize: "clamp(0.5rem, 1.15vw, 1rem)" }}
+          >
+            THANK YOU FOR PARTICIPATING
+          </span>
+          <span
+            className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-500 tracking-wide"
+            style={{ fontSize: "clamp(0.45rem, 1vw, 0.9rem)" }}
+          >
+            MORE DEALS COMING SOON
+          </span>
+        </div>
+      )}
+
+      {state === "countdown" && (
+        <div className="flex items-center justify-center gap-[2%] w-full h-full">
+          <Clock
+            className="text-[#D4537E] shrink-0"
+            style={{ width: "12%", height: "42%" }}
+          />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
+          <CountdownUnit value={days} label="DAYS" />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
+          <CountdownUnit value={hours} label="HOURS" />
+          <div className="w-px h-2/3 bg-[#D4537E]/30" />
+          <CountdownUnit value={minutes} label="MINS" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 type HeroProps = {
   onNavToAllProducts: () => void;
   onNavToHeshAnc: () => void;
@@ -37,9 +122,9 @@ export function Hero({
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Same 3-state clock (countdown -> live -> ended) that drives
-  // FridayFlashDeals.tsx, so the Hero slide and the homepage section never
-  // drift out of sync with each other.
-  const { state: saleState, days, hours, minutes } = useSaleState();
+  // FridayFlashDeals.tsx and FlashSaleCountdown, so the slide's visibility
+  // never drifts out of sync with the rest of the site.
+  const { state: saleState } = useSaleState();
 
   // The flash-deal banner only appears while there's something to say — hide
   // it entirely once the sale has ended, rather than showing a stale/empty
@@ -112,37 +197,7 @@ export function Hero({
                 alt="Friday Flash Deal — up to 70% off, FOST members only"
                 className="w-full h-full object-cover object-center"
               />
-
-              {/* Live countdown / live-now badge overlaid on the banner.
-                  Positioned bottom-left by default — adjust the className
-                  below if it should sit somewhere else on the banner. */}
-              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8">
-                {saleState === "countdown" && (
-                  <div className="flex items-center gap-2 md:gap-3 bg-black/60 backdrop-blur-sm rounded-xl px-3 py-1.5 md:px-4 md:py-2">
-                    <Clock size={14} className="text-white/80" />
-                    {[
-                      { value: days, label: "D" },
-                      { value: hours, label: "H" },
-                      { value: minutes, label: "M" },
-                    ].map((unit, i) => (
-                      <div key={unit.label} className="flex items-center gap-2 md:gap-3">
-                        {i > 0 && <span className="text-white/40 font-bold">:</span>}
-                        <div className="flex items-baseline gap-0.5 text-white">
-                          <span className="text-sm md:text-lg font-extrabold">{unit.value}</span>
-                          <span className="text-[9px] md:text-[10px] text-white/70">{unit.label}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {saleState === "live" && (
-                  <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-xl px-4 py-1.5 md:py-2 font-extrabold text-sm md:text-base text-white animate-pulse">
-                    <span className="h-2 w-2 rounded-full bg-orange-400" />
-                    DEAL LIVE NOW
-                  </div>
-                )}
-              </div>
+              <FlashSaleCountdown />
             </button>
           </div>
         )}
