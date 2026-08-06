@@ -36,18 +36,6 @@ const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 // variants together. discountTitle must exactly match the title of that
 // product's automatic discount in Shopify Admin.
 const DEAL_PRODUCTS = {
-  "looki-l1": {
-    name: "Looki L1 (Black)",
-    cap: 5,
-    discountTitle: "Friday Flash Deal — Looki L1",
-    variantIds: ["gid://shopify/ProductVariant/47901198155914"],
-  },
-  "hohem-mt3-pro-kit": {
-    name: "Hohem MT3 Pro Kit",
-    cap: 5,
-    discountTitle: "Friday Flash Deal — Hohem MT3 Pro Kit",
-    variantIds: ["gid://shopify/ProductVariant/49524758053002"],
-  },
   "cleer-arc-iii": {
     name: "Cleer ARC III",
     cap: 5,
@@ -102,7 +90,7 @@ for (const [productKey, product] of Object.entries(DEAL_PRODUCTS)) {
 
 // Sale window start — used to scope the order query so we only count units
 // sold under this specific drop, not historical sales of the same products.
-const SALE_START = "2026-07-31T18:00:00+08:00";
+const SALE_START = "2026-08-07T18:00:00+08:00";
 
 function verifyWebhook(rawBody, hmacHeader) {
   if (!hmacHeader) return false;

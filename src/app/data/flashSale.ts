@@ -17,15 +17,18 @@
 
 import { useState, useEffect } from "react";
 
-export const FLASH_SALE_START = new Date("2026-07-31T18:00:00+08:00").getTime();
-export const FLASH_SALE_END = new Date("2026-07-31T19:00:00+08:00").getTime();
+export const FLASH_SALE_START = new Date("2026-08-07T18:00:00+08:00").getTime();
+export const FLASH_SALE_END = new Date("2026-08-07T19:00:00+08:00").getTime();
 
 // Product handle -> flash sale price. Handles are the part of the URL
 // after /products/ on the live site — copy them exactly, a typo here
 // means the deal silently never shows for that product.
+//
+// NOTE: looki-l1 and hohem-isteady-mt3-pro-and-mt3-pro-kit are intentionally
+// NOT included this cycle — this week's deal is the 5 headphones/earbuds
+// below only, matching the confirmed banner. Re-add them here (and re-add
+// their VARIANT_SCOPE entries below) if they're meant to run again.
 export const FLASH_SALE_PRICES: Record<string, number> = {
-  "looki-l1": 289.0,
-  "hohem-isteady-mt3-pro-and-mt3-pro-kit": 649.0,
   "pre-order-cleer-arc-iii-music-open-ear-wireless-earbuds": 99.0,
   "skullcandy-dime-evo-true-wireless-earbuds": 59.0,
   "skullcandy-push-ultra-anc-true-wireless-earbuds": 99.0,
@@ -40,10 +43,7 @@ export const FLASH_SALE_PRICES: Record<string, number> = {
 // should apply no matter which variant is selected — this is the case for
 // all 5 Skullcandy/Cleer products below (deal applies to any colour/variant),
 // same as Looki L1.
-export const FLASH_SALE_VARIANT_SCOPE: Record<string, string> = {
-  "hohem-isteady-mt3-pro-and-mt3-pro-kit": "MT3 Pro Kit",
-  "looki-l1": "Black",
-};
+export const FLASH_SALE_VARIANT_SCOPE: Record<string, string> = {};
 
 export function isFlashSaleActiveNow(): boolean {
   const now = Date.now();
